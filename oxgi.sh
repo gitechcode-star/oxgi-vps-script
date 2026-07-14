@@ -6,15 +6,12 @@ VERSION_FILE="/etc/oxgi/version.conf"
 [ -f "$CONFIG" ] && source "$CONFIG"
 [ -f "$VERSION_FILE" ] && source "$VERSION_FILE"
 
-source /usr/local/oxgi/modules/header.sh
-
-BLUE='\033[1;34m'
-CYAN='\033[1;36m'
-GREEN='\033[1;32m'
-WHITE='\033[1;37m'
-YELLOW='\033[1;33m'
-RED='\033[1;31m'
-NC='\033[0m'
+CYAN="\e[1;36m"
+GREEN="\e[1;32m"
+RED="\e[1;31m"
+WHITE="\e[1;37m"
+YELLOW="\e[1;33m"
+NC="\e[0m"
 
 while true
 do
@@ -22,7 +19,14 @@ do
 [ -f "$CONFIG" ] && source "$CONFIG"
 [ -f "$VERSION_FILE" ] && source "$VERSION_FILE"
 
-show_header
+clear
+
+echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
+printf "${CYAN}│${NC} %-58s ${CYAN}│${NC}\n" \
+"${WHITE}${APP_NAME} - Versión : ${VERSION} - (${AUTHOR})${NC}"
+echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
+
+echo
 
 printf "${WHITE}%-30s %-30s${NC}\n" \
 "SSH      : $SSH_PORT,$SSH_PORT_ALT" \
@@ -37,49 +41,51 @@ printf "${WHITE}%-30s %-30s${NC}\n" \
 "BADVPN   : $BADVPN_PORT"
 
 echo
-echo -e "${BLUE}══════════════════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
+printf "${CYAN}│${NC} ${WHITE}[ SSH : ${GREEN}ON${WHITE} ]   [ XRAY : ${GREEN}ON${WHITE} ]   [ NGINX : ${GREEN}ON${WHITE} ]${NC}"
 echo
-
-echo -e "${GREEN}[1]${NC} SSH Manager"
-echo -e "${GREEN}[2]${NC} V2Ray Manager"
-echo -e "${GREEN}[3]${NC} Monitor"
+echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
 
 echo
-echo -e "${CYAN}[4]${NC} Configuración"
-echo -e "${CYAN}[5]${NC} Actualizar Script"
+
+echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
+echo -e "${CYAN}│${NC} ${WHITE}[01]${NC} SSH Manager        ${WHITE}[04]${NC} Configuración"
+echo -e "${CYAN}│${NC} ${WHITE}[02]${NC} V2Ray Manager      ${WHITE}[05]${NC} Actualizar Script"
+echo -e "${CYAN}│${NC} ${WHITE}[03]${NC} Monitor"
+echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
 
 echo
-echo -e "${RED}[0]${NC} Exit"
+
+echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
+echo -e "${CYAN}│${NC} ${WHITE}[00]${NC} Exit"
+echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
 
 echo
-echo -e "${BLUE}══════════════════════════════════════════════════════════════${NC}"
-echo
-
 read -p "Seleccione una opción: " opt
 
 case $opt in
 
-1)
+1|01)
 bash /usr/local/oxgi/modules/ssh.sh
 ;;
 
-2)
+2|02)
 bash /usr/local/oxgi/modules/v2ray.sh
 ;;
 
-3)
+3|03)
 bash /usr/local/oxgi/modules/monitor.sh
 ;;
 
-4)
+4|04)
 bash /usr/local/oxgi/modules/configuracion.sh
 ;;
 
-5)
+5|05)
 bash /usr/local/oxgi/modules/updater.sh
 ;;
 
-0)
+0|00)
 clear
 echo
 echo "Gracias por usar OXGI VPS"
