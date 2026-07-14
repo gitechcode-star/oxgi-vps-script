@@ -180,7 +180,7 @@ while true; do
             echo "  [1] Minutos"
             echo "  [2] Horas"
             echo "  [3] Días"
-            echo "  [4] Meses"
+            echo "  [4] Meses (30 días)"
             echo "$BOX_BOT"
             
             echo "$BOX_TOP"
@@ -191,7 +191,7 @@ while true; do
                 1) unit_str="minutes" ;;
                 2) unit_str="hours" ;;
                 3) unit_str="days" ;;
-                4) unit_str="months" ;;
+                4) unit_str="days"; time_qty=$((time_qty * 30)) ;;
                 *) 
                     echo -e "${RED}Opción inválida.${NC}"
                     read -p "ENTER para continuar..."
@@ -456,7 +456,7 @@ while true; do
             echo "  [1] Minutos"
             echo "  [2] Horas"
             echo "  [3] Días"
-            echo "  [4] Meses"
+            echo "  [4] Meses (30 días)"
             echo "$BOX_BOT"
             
             echo "$BOX_TOP"
@@ -467,7 +467,10 @@ while true; do
                 1) unit_str="minutes" ;;
                 2) unit_str="hours" ;;
                 3) unit_str="days" ;;
-                4) unit_str="months" ;;
+                4) unit_str="days"
+                   read -p "├─ Cantidad de meses: " months_qty
+                   time_qty=$((months_qty * 30))
+                   ;;
                 *) 
                     echo -e "${RED}Opción inválida.${NC}"
                     read -p "ENTER para continuar..."
@@ -475,10 +478,12 @@ while true; do
                     ;;
             esac
 
-            echo "$BOX_TOP"
-            read -p "├─ Cantidad a agregar: " time_qty
-            echo "$BOX_BOT"
-            validar_numero "$time_qty" || { read -p "ENTER para continuar..."; continue; }
+            if [[ "$unit_opt" != "4" ]]; then
+                echo "$BOX_TOP"
+                read -p "├─ Cantidad a agregar: " time_qty
+                echo "$BOX_BOT"
+                validar_numero "$time_qty" || { read -p "ENTER para continuar..."; continue; }
+            fi
 
             echo "$BOX_TOP"
             read -p "├─ Número máximo de dispositivos: " max_devices_input
@@ -512,15 +517,10 @@ while true; do
                         minutes) add_seconds=$((time_qty * 60)) ;;
                         hours)   add_seconds=$((time_qty * 3600)) ;;
                         days)    add_seconds=$((time_qty * 86400)) ;;
-                        months)
-                            new_exp_datetime=$(date -d "$current_date_str +$time_qty month" "+%Y-%m-%d %H:%M:%S")
-                            ;;
                     esac
 
-                    if [[ "$unit_str" != "months" ]]; then
-                        new_exp_epoch=$((current_epoch + add_seconds))
-                        new_exp_datetime=$(date -d "@$new_exp_epoch" "+%Y-%m-%d %H:%M:%S")
-                    fi
+                    new_exp_epoch=$((current_epoch + add_seconds))
+                    new_exp_datetime=$(date -d "@$new_exp_epoch" "+%Y-%m-%d %H:%M:%S")
                 else
                     new_exp_datetime=$(date -d "+$time_qty $unit_str" "+%Y-%m-%d %H:%M:%S")
                 fi
@@ -619,7 +619,7 @@ while true; do
                 read -p "ENTER para continuar..."
             else
                 echo "$BOX_TOP"
-                printf " %-10s %-18s %-10s %-10s %-10s\n" "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
+                printf " %-10s %-22s %-10s %-10s %-10s\n" "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
                 echo "$BOX_LINE"
                 
                 # Guardar la posición del cursor para actualizar solo las filas sin parpadeo
@@ -667,15 +667,26 @@ while true; do
                             time_left="Nunca"
                         elif [[ $exp_epoch -le $now_epoch ]]; then
                             status="${RED}Expirado${NC}"
-                            time_left="00:00:00:00"
+                            time_left="00:00:00:00:00"
                         else
                             status="${GREEN}Activo${NC}"
                             diff=$((exp_epoch - now_epoch))
-                            days=$((diff / 86400))
-                            hours=$(( (diff % 86400) / 3600 ))
-                            minutes=$(( (diff % 3600) / 60 ))
-                            seconds=$((diff % 60))
-                            time_left=$(printf "%02d:%02d:%02d:%02d" $days $hours $minutes $seconds)
+                            
+                            # Calcular tiempo preciso: Meses:Días:Horas:Minutos:Segundos
+                            # 1 mes = 30 días = 2592000 segundos
+                            months=$((diff / 2592000))
+                            remaining=$((diff % 2592000))
+                            
+                            days=$((remaining / 86400))
+                            remaining=$((remaining % 86400))
+                            
+                            hours=$((remaining / 3600))
+                            remaining=$((remaining % 3600))
+                            
+                            minutes=$((remaining / 60))
+                            seconds=$((remaining % 60))
+                            
+                            time_left=$(printf "%02d:%02d:%02d:%02d:%02d" $months $days $hours $minutes $seconds)
                         fi
                         
                         if who | grep -q "^${user} "; then
@@ -685,7 +696,7 @@ while true; do
                         fi
                         
                         # Imprimir fila con formato ajustado y limpiar exceso de línea anterior
-                        printf " %-9s %-18s %-22b %-24b %-25s\e[K\n" \
+                        printf " %-9s %-22s %-22b %-24b %-25s\e[K\n" \
                         "$user" "$time_left" "$status" "$connection" "${current_dev}/${max_dev}"
                     done
                     
