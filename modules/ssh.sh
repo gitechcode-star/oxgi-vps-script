@@ -47,7 +47,7 @@ if [[ "$CURRENT" -ge "$MAX" ]]; then
     echo "║  Límite de $MAX dispositivo(s) alcanzado.                     "
     echo "║  Conexiones activas: $CURRENT                                 "
     echo "║  Desconecte un dispositivo antes de intentar nuevamente.     "
-    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo "══════════════════════════════════════════════════════════════╝"
     echo ""
     sleep 5
     exit 1
@@ -460,7 +460,7 @@ while true; do
             echo "$BOX_BOT"
             
             echo "$BOX_TOP"
-            read -p "├─ Opción: " unit_opt
+            read -p "─ Opción: " unit_opt
             echo "$BOX_BOT"
 
             case $unit_opt in
@@ -630,6 +630,7 @@ while true; do
                         db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
                         if [[ -n "$db_entry" ]]; then
                             exp_epoch=$(echo "$db_entry" | cut -d':' -f2)
+                            exp_datetime=$(echo "$db_entry" | cut -d':' -f3-)
                         
                             # Obtener el último campo (dispositivos)
                             max_dev=$(echo "$db_entry" | awk -F: '{print $NF}')
@@ -642,8 +643,10 @@ while true; do
                             exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
                             if [[ "$exp_info" != "never" ]]; then
                                 exp_epoch=$(date -d "$exp_info" +%s 2>/dev/null)
+                                exp_datetime="$exp_info"
                             else
                                 exp_epoch=9999999999
+                                exp_datetime="Nunca"
                             fi
                             max_dev=1
                         fi
@@ -658,12 +661,22 @@ while true; do
                         
                         now_epoch=$(date +%s)
                         
-                        if [[ "$exp_info" == "never" ]]; then
+                        if [[ "$exp_datetime" == "Nunca" ]]; then
                             status="${GREEN}Activo (Sin exp.)${NC}"
                             time_left="Nunca"
                         elif [[ $exp_epoch -le $now_epoch ]]; then
                             status="${RED}Expirado${NC}"
-                            time_left="00:00:00:00:00"
+                            # Calcular tiempo transcurrido desde la expiración
+                            diff=$((now_epoch - exp_epoch))
+                            months=$((diff / 2592000))
+                            remaining=$((diff % 2592000))
+                            days=$((remaining / 86400))
+                            remaining=$((remaining % 86400))
+                            hours=$((remaining / 3600))
+                            remaining=$((remaining % 3600))
+                            minutes=$((remaining / 60))
+                            seconds=$((remaining % 60))
+                            time_left=$(printf "${RED}%02d:%02d:%02d:%02d:%02d${NC}" $months $days $hours $minutes $seconds)
                         else
                             status="${GREEN}Activo${NC}"
                             diff=$((exp_epoch - now_epoch))
@@ -692,7 +705,7 @@ while true; do
                         fi
                         
                         # Imprimir fila con formato ajustado y limpiar exceso de línea anterior
-                        printf " %-9s %-22s %-22b %-24b %-25s\e[K\n" \
+                        printf " %-9s %-22b %-22b %-24b %-25s\e[K\n" \
                         "$user" "$time_left" "$status" "$connection" "${current_dev}/${max_dev}"
                     done
                     
@@ -729,7 +742,7 @@ while true; do
                         if [[ "$db_epoch" -lt "$current_epoch" ]]; then
                             if id "$db_user" &>/dev/null; then
                                 userdel "$db_user" 2>/dev/null
-                                echo -e "${RED}️ Usuario '$db_user' eliminado (Expiró: $db_datetime)${NC}"
+                                echo -e "${RED}🗑️ Usuario '$db_user' eliminado (Expiró: $db_datetime)${NC}"
                                 ((deleted_count++))
                             fi
                         fi
