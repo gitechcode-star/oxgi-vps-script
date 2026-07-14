@@ -6,7 +6,7 @@ source /usr/local/oxgi/modules/header.sh
 
 # Definir cajas más anchas para acomodar la nueva columna (80 caracteres)
 BOX_TOP="┌────────────────────────────────────────────────────────────────────────"
-BOX_BOT="└────────────────────────────────────────────────────────────────────────┘"
+BOX_BOT="└────────────────────────────────────────────────────────────────────────"
 BOX_LINE="────────────────────────────────────────────────────────────────────────"
 
 # Archivo de base de datos local
@@ -248,7 +248,7 @@ while true; do
             echo
             echo "$BOX_TOP"
             echo ""
-            echo "├─ Dominio: $DOMAIN"
+            echo "─ Dominio: $DOMAIN"
             echo "├─ Usuario: $username"
             echo "├─ Contraseña: $password"
             echo "├─ Dispositivos máx: $max_devices"
@@ -666,17 +666,8 @@ while true; do
                             time_left="Nunca"
                         elif [[ $exp_epoch -le $now_epoch ]]; then
                             status="${RED}Expirado${NC}"
-                            # Calcular tiempo transcurrido desde la expiración
-                            diff=$((now_epoch - exp_epoch))
-                            months=$((diff / 2592000))
-                            remaining=$((diff % 2592000))
-                            days=$((remaining / 86400))
-                            remaining=$((remaining % 86400))
-                            hours=$((remaining / 3600))
-                            remaining=$((remaining % 3600))
-                            minutes=$((remaining / 60))
-                            seconds=$((remaining % 60))
-                            time_left=$(printf "${RED}%02d:%02d:%02d:%02d:%02d${NC}" $months $days $hours $minutes $seconds)
+                            # CORRECCIÓN: Cuando está expirado, mostrar 00:00:00:00:00 fijo sin seguir contando
+                            time_left="${RED}00:00:00:00:00${NC}"
                         else
                             status="${GREEN}Activo${NC}"
                             diff=$((exp_epoch - now_epoch))
