@@ -4,15 +4,45 @@
 source /usr/local/oxgi/modules/color.sh
 source /usr/local/oxgi/modules/header.sh
 
-# Definir cajas para mantener la estática visual
-BOX_TOP="┌────────────────────────────────────────────────────────────┐"
-BOX_BOT="└────────────────────────────────────────────────────────────┘"
-BOX_LINE="────────────────────────────────────────────────────────────"
+# Definir cajas más anchas para acomodar la nueva columna (80 caracteres)
+BOX_TOP="┌────────────────────────────────────────────────────────────────────────┐"
+BOX_BOT="└────────────────────────────────────────────────────────────────────────┘"
+BOX_LINE="────────────────────────────────────────────────────────────────────────"
 
-# Archivo de base de datos local para expiraciones precisas (minutos/horas)
+# Archivo de base de datos local
 mkdir -p /etc/oxgi
 DB_FILE="/etc/oxgi/ssh_users.db"
 touch "$DB_FILE"
+
+# Crear script de shell personalizado para limitar conexiones
+SHELL_SCRIPT="/usr/local/oxgi/bin/oxgi-ssh-shell"
+mkdir -p /usr/local/oxgi/bin
+if [ ! -f "$SHELL_SCRIPT" ]; then
+    cat << 'EOF' > "$SHELL_SCRIPT"
+#!/bin/bash
+USER_NAME=$(whoami)
+# Leer límite desde la base de datos (campo 4). Si no existe, default 1.
+MAX=$(grep "^$USER_NAME:" /etc/oxgi/ssh_users.db 2>/dev/null | cut -d: -f4)
+if [ -z "$MAX" ]; then MAX=1; fi
+
+# Contar sesiones sshd activas para este usuario
+CURRENT=$(ps -u $USER_NAME -o pid,cmd 2>/dev/null | grep "sshd: $USER_NAME" | grep -v grep | wc -l)
+
+if [ "$CURRENT" -gt "$MAX" ]; then
+    echo -e "\e[31mLimite de $MAX dispositivos alcanzado. Conexion rechazada.\e[0m"
+    sleep 3
+    exit 1
+fi
+
+# Mantener conexión viva para túneles/proxy
+while true; do sleep 3600; done
+EOF
+    chmod +x "$SHELL_SCRIPT"
+    # Agregar a shells permitidos si no está
+    if ! grep -q "$SHELL_SCRIPT" /etc/shells; then
+        echo "$SHELL_SCRIPT" >> /etc/shells
+    fi
+fi
 
 # Función auxiliar para validar nombre de usuario
 validar_usuario() {
@@ -36,16 +66,6 @@ validar_numero() {
     return 0
 }
 
-# Función para verificar si un usuario está online
-usuario_online() {
-    local user="$1"
-    if who | grep -q "^$user "; then
-        return 0
-    else
-        return 1
-    fi
-}
-
 while true; do
     clear
     show_header
@@ -61,7 +81,7 @@ while true; do
     echo
     echo -e "${RED}[0]${NC} Regresar"
     echo
-    echo -e "${BLUE}══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${BLUE}══════════════════════════════════════════════════════════════════════════════${NC}"
     echo
 
     read -p "Seleccione una opción: " opt
@@ -78,7 +98,6 @@ while true; do
             read -p "Nombre de usuario: " username
             validar_usuario "$username" || { read -p "ENTER para continuar..."; continue; }
             
-            # Verificación CORREGIDA: Solo avisa si YA existe
             if id "$username" &>/dev/null; then
                 echo -e "${RED}Error: El usuario '$username' ya existe. Por favor, elija otro nombre.${NC}"
                 read -p "ENTER para continuar..."
@@ -123,18 +142,23 @@ while true; do
             echo "$BOX_BOT"
             validar_numero "$time_qty" || { read -p "ENTER para continuar..."; continue; }
 
+            echo "$BOX_TOP"
+            read -p "├─ Número máximo de dispositivos: " max_devices
+            echo "$BOX_BOT"
+            validar_numero "$max_devices" || { read -p "ENTER para continuar..."; continue; }
+
             # Calcular fechas de expiración
             exp_datetime=$(date -d "+$time_qty $unit_str" "+%Y-%m-%d %H:%M:%S")
             exp_date=$(date -d "+$time_qty $unit_str" +%Y-%m-%d)
             exp_epoch=$(date -d "+$time_qty $unit_str" +%s)
 
-            # Crear usuario sin directorio home y sin acceso a shell
-            useradd -M -s /bin/false -e "$exp_date" "$username"
+            # Crear usuario con el shell personalizado para limitar conexiones
+            useradd -M -s "$SHELL_SCRIPT" -e "$exp_date" "$username"
             echo "$username:$password" | chpasswd
 
-            # Guardar en base de datos local
+            # Guardar en base de datos local (Formato: user:epoch:datetime:max_devices)
             sed -i "/^$username:/d" "$DB_FILE" 2>/dev/null
-            echo "$username:$exp_epoch:$exp_datetime" >> "$DB_FILE"
+            echo "$username:$exp_epoch:$exp_datetime:$max_devices" >> "$DB_FILE"
 
             # Obtener dominio configurado
             DOMAIN="No disponible"
@@ -153,6 +177,7 @@ while true; do
             echo "├─ Dominio: $DOMAIN"
             echo "├─ Usuario: $username"
             echo "├─ Contraseña: $password"
+            echo "├─ Dispositivos máx: $max_devices"
             echo ""
             echo "$BOX_BOT"
             echo
@@ -245,8 +270,11 @@ while true; do
             echo "$BOX_BOT"
             validar_numero "$time_qty" || { read -p "ENTER para continuar..."; continue; }
 
-            # Obtener fecha actual de expiración
+            # Obtener fecha actual de expiración y límite de dispositivos
             db_entry=$(grep "^$username:" "$DB_FILE" 2>/dev/null)
+            max_dev=$(echo "$db_entry" | cut -d: -f4)
+            if [ -z "$max_dev" ]; then max_dev=1; fi
+
             if [[ -n "$db_entry" ]]; then
                 current_date_str=$(echo "$db_entry" | cut -d: -f3)
                 new_exp_datetime=$(date -d "$current_date_str + $time_qty $unit_str" "+%Y-%m-%d %H:%M:%S" 2>/dev/null)
@@ -259,9 +287,9 @@ while true; do
 
             usermod -e "$new_exp_date" "$username"
             
-            # Actualizar DB
+            # Actualizar DB manteniendo el límite de dispositivos
             sed -i "/^$username:/d" "$DB_FILE" 2>/dev/null
-            echo "$username:$new_exp_epoch:$new_exp_datetime" >> "$DB_FILE"
+            echo "$username:$new_exp_epoch:$new_exp_datetime:$max_dev" >> "$DB_FILE"
 
             echo
             echo -e "${GREEN}✅ Usuario '$username' renovado exitosamente.${NC}"
@@ -340,13 +368,14 @@ while true; do
                 echo -e "${RED}No hay usuarios registrados en el sistema.${NC}"
             else
                 echo "$BOX_TOP"
-                printf " %-11s %-23s %-12s %s\n" "Usuario" "Expiración Precisa" "Estado" "Conexión"
+                printf " %-12s %-24s %-18s %-14s %s\n" "Usuario" "Expiración Precisa" "Estado" "Conexión" "dispositivos"
                 echo "$BOX_LINE"
                 for user in $users_list; do
                     db_entry=$(grep "^$user:" "$DB_FILE" 2>/dev/null)
                     if [[ -n "$db_entry" ]]; then
                         exp_info=$(echo "$db_entry" | cut -d: -f3)
                         exp_epoch=$(echo "$db_entry" | cut -d: -f2)
+                        max_dev=$(echo "$db_entry" | cut -d: -f4)
                     else
                         exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
                         if [[ "$exp_info" != "never" ]]; then
@@ -354,7 +383,14 @@ while true; do
                         else
                             exp_epoch=9999999999
                         fi
+                        max_dev=1
                     fi
+                    
+                    # Si el campo max_dev está vacío (por bases de datos antiguas), default a 1
+                    if [[ -z "$max_dev" ]]; then max_dev=1; fi
+
+                    # Contar dispositivos conectados actualmente
+                    current_dev=$(ps -u "$user" -o pid,cmd 2>/dev/null | grep "sshd: $user" | grep -v grep | wc -l)
                     
                     now_epoch=$(date +%s)
                     if [[ "$exp_info" == "never" ]]; then
@@ -366,15 +402,14 @@ while true; do
                         status="${GREEN}Activo${NC}"
                     fi
                     
-                    # Verificar si está online
-                    if usuario_online "$user"; then
+                    if who | grep -q "^$user "; then
                         connection="${GREEN}Online${NC}"
                     else
                         connection="${GRAY}Offline${NC}"
                     fi
                     
-                    # Imprimir con espaciado correcto
-                    printf " %-11s %-23s %b          %b\n" "$user" "$exp_info" "$status" "$connection"
+                    # Imprimir fila con formato ajustado
+                    printf " %-12s %-24s %-26b %-22b %s/%s\n" "$user" "$exp_info" "$status" "$connection" "$current_dev" "$max_dev"
                 done
                 echo "$BOX_BOT"
             fi
@@ -394,7 +429,7 @@ while true; do
             current_epoch=$(date +%s)
             
             if [[ -f "$DB_FILE" ]]; then
-                while IFS=: read -r db_user db_epoch db_datetime; do
+                while IFS=: read -r db_user db_epoch db_datetime db_max; do
                     if [[ -n "$db_user" ]]; then
                         if [[ "$db_epoch" -lt "$current_epoch" ]]; then
                             if id "$db_user" &>/dev/null; then
