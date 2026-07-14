@@ -66,6 +66,48 @@ validar_numero() {
     return 0
 }
 
+# Función para obtener puertos configurados
+obtener_puertos() {
+    local config_file="/etc/oxgi/config.conf"
+    
+    # Valores por defecto
+    DOMAIN="No disponible"
+    SSL_PORT="No disponible"
+    DROPBEAR_PORT="No disponible"
+    UDP_PORT="No disponible"
+    OPENSSH_PORT="22"
+    WEBSOCKET_PORT="No disponible"
+    V2RAY_PORT="No disponible"
+    
+    if [[ -f "$config_file" ]]; then
+        source "$config_file" 2>/dev/null
+        
+        # Dominio
+        [[ -n "$DOMAIN" && "$DOMAIN" != "No disponible" ]] && DOMAIN="$DOMAIN"
+        [[ -n "$DOMINIO" ]] && DOMAIN="$DOMINIO"
+        [[ -n "$HOST" ]] && DOMAIN="$HOST"
+        
+        # Puertos
+        [[ -n "$SSL_PORT" ]] && SSL_PORT="$SSL_PORT"
+        [[ -n "$PUERTO_SSL" ]] && SSL_PORT="$PUERTO_SSL"
+        
+        [[ -n "$DROPBEAR_PORT" ]] && DROPBEAR_PORT="$DROPBEAR_PORT"
+        [[ -n "$PUERTO_DROPBEAR" ]] && DROPBEAR_PORT="$PUERTO_DROPBEAR"
+        
+        [[ -n "$UDP_PORT" ]] && UDP_PORT="$UDP_PORT"
+        [[ -n "$PUERTO_UDP" ]] && UDP_PORT="$PUERTO_UDP"
+        
+        [[ -n "$OPENSSH_PORT" ]] && OPENSSH_PORT="$OPENSSH_PORT"
+        [[ -n "$PUERTO_SSH" ]] && OPENSSH_PORT="$PUERTO_SSH"
+        
+        [[ -n "$WEBSOCKET_PORT" ]] && WEBSOCKET_PORT="$WEBSOCKET_PORT"
+        [[ -n "$PUERTO_WS" ]] && WEBSOCKET_PORT="$PUERTO_WS"
+        
+        [[ -n "$V2RAY_PORT" ]] && V2RAY_PORT="$V2RAY_PORT"
+        [[ -n "$PUERTO_V2RAY" ]] && V2RAY_PORT="$PUERTO_V2RAY"
+    fi
+}
+
 while true; do
     clear
     show_header
@@ -160,14 +202,8 @@ while true; do
             sed -i "/^$username:/d" "$DB_FILE" 2>/dev/null
             echo "$username:$exp_epoch:$exp_datetime:$max_devices" >> "$DB_FILE"
 
-            # Obtener dominio configurado
-            DOMAIN="No disponible"
-            if [[ -f /etc/oxgi/config.conf ]]; then
-                source /etc/oxgi/config.conf 2>/dev/null
-                [[ -n "$DOMAIN" && "$DOMAIN" != "No disponible" ]] && DOMAIN="$DOMAIN"
-                [[ -n "$DOMINIO" ]] && DOMAIN="$DOMINIO"
-                [[ -n "$HOST" ]] && DOMAIN="$HOST"
-            fi
+            # Obtener puertos configurados
+            obtener_puertos
 
             echo
             echo -e "${GREEN}✅ Usuario creado exitosamente.${NC}"
@@ -178,6 +214,13 @@ while true; do
             echo "├─ Usuario: $username"
             echo "├─ Contraseña: $password"
             echo "├─ Dispositivos máx: $max_devices"
+            echo "$BOX_LINE"
+            echo "├─ SSL: $SSL_PORT"
+            echo "├─ DROPBEAR: $DROPBEAR_PORT"
+            echo "├─ UDP: $UDP_PORT"
+            echo "├─ OpenSSH: $OPENSSH_PORT"
+            echo "├─ WebSocket: $WEBSOCKET_PORT"
+            echo "├─ V2Ray: $V2RAY_PORT"
             echo ""
             echo "$BOX_BOT"
             echo
