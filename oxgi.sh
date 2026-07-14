@@ -32,21 +32,21 @@ printf "${WHITE}%-30s %-30s${NC}\n" \
 echo
 
 echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${NC} ${WHITE}[ SSH : ${GREEN}ON${WHITE} ]   [ XRAY : ${GREEN}ON${WHITE} ]   [ NGINX : ${GREEN}ON${WHITE} ]"
+echo -e "${CYAN}│${NC} ${WHITE}[ SSH : ${GREEN}ON${WHITE} ]   [ XRAY : ${GREEN}ON${WHITE} ]   [ NGINX : ${GREEN}ON${WHITE} ]${NC}"
 echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
 
 echo
 
 echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${NC} ${WHITE}[01]${NC} SSH Manager        ${WHITE}[04]${NC} Configuración"
-echo -e "${CYAN}│${NC} ${WHITE}[02]${NC} V2Ray Manager      ${WHITE}[05]${NC} Actualizar Script"
-echo -e "${CYAN}│${NC} ${WHITE}[03]${NC} Monitor"
+printf "${CYAN}│${NC} ${WHITE}[01]${NC} SSH Manager        ${WHITE}[04]${NC} Configuración                ${CYAN}│${NC}\n"
+printf "${CYAN}│${NC} ${WHITE}[02]${NC} V2Ray Manager      ${WHITE}[05]${NC} Actualizar Script            ${CYAN}│${NC}\n"
+printf "${CYAN}│${NC} ${WHITE}[03]${NC} Monitor                                           ${CYAN}│${NC}\n"
 echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
 
 echo
 
 echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${NC} ${RED}[00]${NC} Exit"
+printf "${CYAN}│${NC} ${RED}[0]${NC} Exit                                              ${CYAN}│${NC}\n"
 echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
 
 echo
