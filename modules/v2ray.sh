@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 source /usr/local/oxgi/modules/color.sh
@@ -38,66 +37,50 @@ read -p "Seleccione una opción: " opt
 case $opt in
 
 1|01)
-    clear
     echo
-    echo -e "${GREEN}Crear Usuario VLESS TCP${NC}"
-    echo
+    echo -e "${GREEN}Función en desarrollo: Crear Usuario VLESS TCP${NC}"
     read -p "ENTER para continuar..."
     ;;
 
 2|02)
-    clear
     echo
-    echo -e "${GREEN}Crear Usuario VLESS WS${NC}"
-    echo
+    echo -e "${GREEN}Función en desarrollo: Crear Usuario VLESS WS${NC}"
     read -p "ENTER para continuar..."
     ;;
 
 3|03)
-    clear
     echo
-    echo -e "${GREEN}Crear Usuario VMESS WS${NC}"
-    echo
+    echo -e "${GREEN}Función en desarrollo: Crear Usuario VMESS WS${NC}"
     read -p "ENTER para continuar..."
     ;;
 
 4|04)
-    clear
     echo
-    echo -e "${GREEN}Crear Usuario TROJAN WS${NC}"
-    echo
+    echo -e "${GREEN}Función en desarrollo: Crear Usuario TROJAN WS${NC}"
     read -p "ENTER para continuar..."
     ;;
 
 5|05)
-    clear
     echo
-    echo -e "${GREEN}Renovar Usuario${NC}"
-    echo
+    echo -e "${GREEN}Función en desarrollo: Renovar Usuario${NC}"
     read -p "ENTER para continuar..."
     ;;
 
 6|06)
-    clear
     echo
-    echo -e "${GREEN}Eliminar Usuario${NC}"
-    echo
+    echo -e "${GREEN}Función en desarrollo: Eliminar Usuario${NC}"
     read -p "ENTER para continuar..."
     ;;
 
 7|07)
-    clear
     echo
-    echo -e "${GREEN}Lista de Usuarios${NC}"
-    echo
+    echo -e "${GREEN}Función en desarrollo: Lista de Usuarios${NC}"
     read -p "ENTER para continuar..."
     ;;
 
 8|08)
-    clear
     echo
-    echo -e "${GREEN}Usuarios Online${NC}"
-    echo
+    echo -e "${GREEN}Función en desarrollo: Usuarios Online${NC}"
     read -p "ENTER para continuar..."
     ;;
 
