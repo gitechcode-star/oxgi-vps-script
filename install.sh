@@ -1,3 +1,4 @@
+```bash
 #!/bin/bash
 
 clear
@@ -9,16 +10,50 @@ AUTHOR="@CodeNex_oficial"
 REPO_URL="https://github.com/gitechcode-star/oxgi-vps-script.git"
 INSTALL_DIR="/usr/local/oxgi"
 
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+# Cargar colores desde modules/color.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo -e "${CYAN}"
-echo "======================================"
-echo "      $APP_NAME $VERSION"
-echo "======================================"
-echo -e "${NC}"
+if [ -f "$SCRIPT_DIR/modules/color.sh" ]; then
+    source "$SCRIPT_DIR/modules/color.sh"
+else
+    echo "No se encontró modules/color.sh"
+    exit 1
+fi
+
+show_header() {
+    clear
+    echo -e "${CYAN}"
+    echo "┌──────────────────────────────────────────────┐"
+    printf "│ %-44s │\n" "$APP_NAME $VERSION"
+    echo "└──────────────────────────────────────────────┘"
+    echo -e "${NC}"
+}
+
+progress_bar() {
+    local step="$1"
+    local total="$2"
+    local text="$3"
+
+    echo
+    echo -e "${CYAN}[${step}/${total}]${NC} ${WHITE}${text}${NC}"
+
+    for ((i=0; i<=100; i+=2)); do
+        filled=$((i/2))
+        empty=$((50-filled))
+
+        printf "\r${GREEN}["
+        printf "%0.s█" $(seq 1 $filled)
+        printf "%0.s░" $(seq 1 $empty)
+        printf "] ${WHITE}%3d%%${NC}" "$i"
+
+        sleep 0.02
+    done
+
+    echo
+    echo -e "${GREEN}✓ Completado${NC}"
+}
+
+show_header
 
 # ROOT
 if [ "$EUID" -ne 0 ]; then
@@ -32,11 +67,13 @@ if ! grep -qi "ubuntu" /etc/os-release; then
     exit 1
 fi
 
-echo -e "${GREEN}[1/7] Actualizando sistema...${NC}"
+# 1/7
+progress_bar 1 7 "Actualizando sistema..."
 apt update -y
 apt upgrade -y
 
-echo -e "${GREEN}[2/7] Instalando dependencias...${NC}"
+# 2/7
+progress_bar 2 7 "Instalando dependencias..."
 apt install -y \
 git \
 curl \
@@ -47,7 +84,8 @@ cron \
 ufw \
 nginx
 
-echo -e "${GREEN}[3/7] Descargando OXGI...${NC}"
+# 3/7
+progress_bar 3 7 "Descargando OXGI..."
 
 rm -rf "$INSTALL_DIR"
 
@@ -58,13 +96,15 @@ if [ ! -d "$INSTALL_DIR" ]; then
     exit 1
 fi
 
-echo -e "${GREEN}[4/7] Configurando permisos...${NC}"
+# 4/7
+progress_bar 4 7 "Configurando permisos..."
 
 chmod +x "$INSTALL_DIR"/oxgi.sh
 chmod +x "$INSTALL_DIR"/install.sh
 chmod +x "$INSTALL_DIR"/modules/*.sh
 
-echo -e "${GREEN}[5/7] Creando configuración...${NC}"
+# 5/7
+progress_bar 5 7 "Creando configuración..."
 
 mkdir -p /etc/oxgi
 
@@ -107,7 +147,8 @@ VERSION="$VERSION"
 AUTHOR="$AUTHOR"
 EOF
 
-echo -e "${GREEN}[6/7] Creando comando global...${NC}"
+# 6/7
+progress_bar 6 7 "Creando comando global..."
 
 cat > /usr/local/bin/oxgi << EOF
 #!/bin/bash
@@ -116,23 +157,19 @@ EOF
 
 chmod +x /usr/local/bin/oxgi
 
-echo -e "${GREEN}[7/7] Finalizando...${NC}"
+# 7/7
+progress_bar 7 7 "Finalizando instalación..."
 
-clear
+show_header
 
 echo -e "${GREEN}"
-echo "======================================"
-echo "   INSTALACION COMPLETADA"
-echo "======================================"
+echo "┌──────────────────────────────────────────────┐"
+echo "│          INSTALACION COMPLETADA ✓            │"
+echo "└──────────────────────────────────────────────┘"
 echo -e "${NC}"
 
 echo
-echo "Comando:"
-echo "oxgi"
-echo
-echo "Versión:"
-echo "$VERSION"
-echo
-echo "Autor:"
-echo "$AUTHOR"
+echo -e "${CYAN}Comando:${NC} ${WHITE}oxgi${NC}"
+echo -e "${CYAN}Versión:${NC} ${WHITE}$VERSION${NC}"
+echo -e "${CYAN}Autor:${NC} ${WHITE}$AUTHOR${NC}"
 echo
