@@ -1,20 +1,37 @@
 #!/bin/bash
 
 REPO="https://github.com/gitechcode-star/oxgi-vps-script.git"
+INSTALL_DIR="/usr/local/oxgi"
 
-echo "Actualizando OXGI..."
+clear
 
-cd /usr/local
+echo "══════════════════════════════"
+echo "      OXGI UPDATER"
+echo "══════════════════════════════"
+echo
 
-rm -rf oxgi-update
+echo "[+] Actualizando OXGI..."
+echo
 
-git clone "$REPO" oxgi-update
+if [ ! -d "$INSTALL_DIR/.git" ]; then
+    echo "[ERROR] OXGI no fue instalado desde Git."
+    echo
+    read -p "ENTER para continuar..."
+    exit 1
+fi
 
-cp -rf oxgi-update/* oxgi/
+cd "$INSTALL_DIR" || exit
 
-chmod +x oxgi/*.sh
-chmod +x oxgi/modules/*.sh
+git reset --hard HEAD
+git clean -fd
 
-rm -rf oxgi-update
+git pull origin main
 
-echo "Actualización completada."
+chmod +x oxgi.sh
+chmod +x modules/*.sh
+
+echo
+echo "[OK] Script actualizado correctamente."
+echo
+
+read -p "ENTER para continuar..."
