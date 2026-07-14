@@ -604,22 +604,35 @@ while true; do
             ;;
 
         6)
-            clear
-            show_header
-            echo "$BOX_TOP"
-            echo " Lista de Usuarios"
-            echo "$BOX_BOT"
-            echo
-            
             users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
             
             if [[ -z "$users_list" ]]; then
-                echo -e "${RED}No hay usuarios registrados en el sistema.${NC}"
-            else
+                clear
+                show_header
                 echo "$BOX_TOP"
-                printf " %-15s %-18s %-10s %-10s %-10s\n" \ "Usuario" "Expiración" "Estado" "Conexión" "Dispositivos"
+                echo " Lista de Usuarios"
+                echo "$BOX_BOT"
+                echo
+                echo -e "${RED}No hay usuarios registrados en el sistema.${NC}"
+                echo
+                read -p "ENTER para continuar..."
+                continue
+            fi
+
+            while true; do
+                clear
+                show_header
+                echo "$BOX_TOP"
+                echo " Lista de Usuarios"
+                echo "$BOX_BOT"
+                echo
+                
+                echo "$BOX_TOP"
+                printf " %-10s %-18s %-10s %-10s %-10s\n" "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
                 echo "$BOX_LINE"
+                
                 for user in $users_list; do
+                    exp_info=""
                     db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
                     if [[ -n "$db_entry" ]]; then
                         exp_epoch=$(echo "$db_entry" | cut -d':' -f2)
@@ -630,13 +643,6 @@ while true; do
                         # Si la línea no tiene campo de dispositivos, usar 1
                         if [[ "$db_entry" != *:*:*:* ]]; then
                             max_dev=1
-                        fi
-                    
-                        # Reconstruir fecha completa
-                        if [[ "$db_entry" == *:*:*:* ]]; then
-                            exp_info=$(echo "$db_entry" | awk -F: '{print $3":"$4":"$5}')
-                        else
-                            exp_info=$(echo "$db_entry" | cut -d':' -f3-)
                         fi
                     else
                         exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
@@ -657,13 +663,21 @@ while true; do
                     current_dev=$(who | grep "^${user} " | wc -l)
                     
                     now_epoch=$(date +%s)
+                    
                     if [[ "$exp_info" == "never" ]]; then
                         status="${GREEN}Activo (Sin exp.)${NC}"
-                        exp_info="Nunca"
-                    elif [[ $exp_epoch -lt $now_epoch ]]; then
+                        time_left="Nunca"
+                    elif [[ $exp_epoch -le $now_epoch ]]; then
                         status="${RED}Expirado${NC}"
+                        time_left="00:00:00:00"
                     else
                         status="${GREEN}Activo${NC}"
+                        diff=$((exp_epoch - now_epoch))
+                        days=$((diff / 86400))
+                        hours=$(( (diff % 86400) / 3600 ))
+                        minutes=$(( (diff % 3600) / 60 ))
+                        seconds=$((diff % 60))
+                        time_left=$(printf "%02d:%02d:%02d:%02d" $days $hours $minutes $seconds)
                     fi
                     
                     if who | grep -q "^${user} "; then
@@ -673,13 +687,18 @@ while true; do
                     fi
                     
                     # Imprimir fila con formato ajustado
-                    printf " %-9s %-22s %-22b %-24b %-25s\n" \
-                    "$user" "$exp_info" "$status" "$connection" "${current_dev}/${max_dev}"
+                    printf " %-9s %-18s %-22b %-24b %-25s\n" \
+                    "$user" "$time_left" "$status" "$connection" "${current_dev}/${max_dev}"
                 done
                 echo "$BOX_BOT"
-            fi
-            echo
-            read -p "ENTER para continuar..."
+                echo
+                echo -e "Presione cualquier tecla para continuar..."
+                
+                read -t 1 -n 1 key
+                if [[ -n "$key" ]]; then
+                    break
+                fi
+            done
             ;;
 
         7)
