@@ -499,13 +499,28 @@ while true; do
                 # Obtener fecha actual de expiración
                 db_entry=$(grep "^${username}:" "$DB_FILE" 2>/dev/null | head -1)
                 
-                if [[ -n "$db_entry" ]]; then
+               if [[ -n "$db_entry" ]]; then
                     if [[ "$db_entry" == *:*:*:* ]]; then
                         current_date_str=$(echo "$db_entry" | sed -E 's/^[^:]+:[0-9]+:(.*):[0-9]+$/\1/')
                     else
                         current_date_str=$(echo "$db_entry" | cut -d':' -f3-)
                     fi
-                    new_exp_datetime=$(date -d "$current_date_str + $time_qty $unit_str" "+%Y-%m-%d %H:%M:%S" 2>/dev/null)
+
+                    current_epoch=$(date -d "$current_date_str" +%s 2>/dev/null)
+
+                    case $unit_str in
+                        minutes) add_seconds=$((time_qty * 60)) ;;
+                        hours)   add_seconds=$((time_qty * 3600)) ;;
+                        days)    add_seconds=$((time_qty * 86400)) ;;
+                        months)
+                            new_exp_datetime=$(date -d "$current_date_str +$time_qty month" "+%Y-%m-%d %H:%M:%S")
+                            ;;
+                    esac
+
+                    if [[ "$unit_str" != "months" ]]; then
+                        new_exp_epoch=$((current_epoch + add_seconds))
+                        new_exp_datetime=$(date -d "@$new_exp_epoch" "+%Y-%m-%d %H:%M:%S")
+                    fi
                 else
                     new_exp_datetime=$(date -d "+$time_qty $unit_str" "+%Y-%m-%d %H:%M:%S")
                 fi
