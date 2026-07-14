@@ -43,7 +43,7 @@ if [[ "$CURRENT" -ge "$MAX" ]]; then
     echo ""
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║                    CONEXIÓN RECHAZADA                        ║"
-    echo "╠══════════════════════════════════════════════════════════════"
+    echo "══════════════════════════════════════════════════════════════"
     echo "║  Límite de $MAX dispositivo(s) alcanzado.                     "
     echo "║  Conexiones activas: $CURRENT                                 "
     echo "║  Desconecte un dispositivo antes de intentar nuevamente.     "
@@ -251,9 +251,9 @@ while true; do
             echo "─ Dominio: $DOMAIN"
             echo "├─ Usuario: $username"
             echo "├─ Contraseña: $password"
-            echo "├─ Dispositivos máx: $max_devices"
+            echo "─ Dispositivos máx: $max_devices"
             echo "$BOX_LINE"
-            echo "├─ SSL: $SSL_PORT"
+            echo "─ SSL: $SSL_PORT"
             echo "├─ DROPBEAR: $DROPBEAR_PORT"
             echo "─ UDP: $UDP_PORT"
             echo "├─ OpenSSH: $OPENSSH_PORT"
@@ -476,7 +476,7 @@ while true; do
             esac
 
             echo "$BOX_TOP"
-            read -p "├─ Cantidad: " time_qty
+            read -p "─ Cantidad: " time_qty
             echo "$BOX_BOT"
             validar_numero "$time_qty" || { read -p "ENTER para continuar..."; continue; }
 
@@ -614,102 +614,90 @@ while true; do
                 echo
                 read -p "ENTER para continuar..."
             else
-                # Imprimir encabezado una sola vez
                 echo "$BOX_TOP"
                 printf " %-10s %-22s %-10s %-10s %-10s\n" "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
                 echo "$BOX_LINE"
                 
-                while true; do
-                    # Mover cursor al inicio de los datos y limpiar solo esa área para evitar parpadeo
-                    echo -ne "\e[11;1H\e[J"
-                    
-                    for user in $users_list; do
-                        exp_info=""
-                        db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
+                for user in $users_list; do
+                    exp_info=""
+                    db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
 
-                        if [[ -n "$db_entry" ]]; then
-                            exp_epoch=$(echo "$db_entry" | cut -d':' -f2)
-                            exp_datetime=$(echo "$db_entry" | cut -d':' -f3-)
+                    if [[ -n "$db_entry" ]]; then
+                        exp_epoch=$(echo "$db_entry" | cut -d':' -f2)
+                        exp_datetime=$(echo "$db_entry" | cut -d':' -f3-)
 
-                            max_dev=$(echo "$db_entry" | awk -F: '{print $NF}')
+                        max_dev=$(echo "$db_entry" | awk -F: '{print $NF}')
 
-                            if [[ "$db_entry" != *:*:*:* ]]; then
-                                max_dev=1
-                            fi
-                        else
-                            exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
-
-                            if [[ "$exp_info" != "never" ]]; then
-                                exp_epoch=$(date -d "$exp_info" +%s 2>/dev/null)
-                                exp_datetime="$exp_info"
-                            else
-                                exp_epoch=9999999999
-                                exp_datetime="Nunca"
-                            fi
-
+                        if [[ "$db_entry" != *:*:*:* ]]; then
                             max_dev=1
                         fi
+                    else
+                        exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
 
-                        if [[ -z "$max_dev" ]] || [[ "$max_dev" -le 0 ]]; then
-                            max_dev=1
-                        fi
-
-                        current_dev=$(who | grep "^${user} " | wc -l)
-
-                        now_epoch=$(date +%s)
-
-                        if [[ "$exp_datetime" == "Nunca" ]]; then
-                            status="${GREEN}Activo (Sin exp.)${NC}"
-                            time_left="Nunca"
-
-                        elif [[ $exp_epoch -le $now_epoch ]]; then
-                            status="${RED}Expirado${NC}"
-                            time_left="${RED}0 SEGUNDOS${NC}"
-
+                        if [[ "$exp_info" != "never" ]]; then
+                            exp_epoch=$(date -d "$exp_info" +%s 2>/dev/null)
+                            exp_datetime="$exp_info"
                         else
-                            status="${GREEN}Activo${NC}"
-
-                            diff=$((exp_epoch - now_epoch))
-
-                            # Lógica simplificada para mostrar solo la unidad de tiempo mayor
-                            if [[ $diff -ge 86400 ]]; then
-                                days=$((diff / 86400))
-                                [[ $days -eq 1 ]] && time_left="${days} DIA" || time_left="${days} DIAS"
-                            elif [[ $diff -ge 3600 ]]; then
-                                hours=$((diff / 3600))
-                                [[ $hours -eq 1 ]] && time_left="${hours} HORA" || time_left="${hours} HORAS"
-                            elif [[ $diff -ge 60 ]]; then
-                                minutes=$((diff / 60))
-                                [[ $minutes -eq 1 ]] && time_left="${minutes} MINUTO" || time_left="${minutes} MINUTOS"
-                            else
-                                [[ $diff -eq 1 ]] && time_left="${diff} SEGUNDO" || time_left="${diff} SEGUNDOS"
-                            fi
+                            exp_epoch=9999999999
+                            exp_datetime="Nunca"
                         fi
 
-                        if who | grep -q "^${user} "; then
-                            connection="${GREEN}Online${NC}"
-                        else
-                            connection="${GRAY}Offline${NC}"
-                        fi
-
-                        printf " %-9s %-22b %-22b %-24b %-25s\n" \
-                            "$user" \
-                            "$time_left" \
-                            "$status" \
-                            "$connection" \
-                            "${current_dev}/${max_dev}"
-                    done
-
-                    echo "$BOX_BOT"
-                    echo
-                    echo "Presione cualquier tecla para continuar..."
-
-                    read -s -t 1 -n 1 key
-                    if [[ $? -eq 0 ]]; then
-                        while read -s -t 0.1 -n 1; do :; done
-                        break
+                        max_dev=1
                     fi
+
+                    if [[ -z "$max_dev" ]] || [[ "$max_dev" -le 0 ]]; then
+                        max_dev=1
+                    fi
+
+                    current_dev=$(who | grep "^${user} " | wc -l)
+
+                    now_epoch=$(date +%s)
+
+                    if [[ "$exp_datetime" == "Nunca" ]]; then
+                        status="${GREEN}Activo (Sin exp.)${NC}"
+                        time_left="Nunca"
+
+                    elif [[ $exp_epoch -le $now_epoch ]]; then
+                        status="${RED}Expirado${NC}"
+                        time_left="${RED}0 SEGUNDOS${NC}"
+
+                    else
+                        status="${GREEN}Activo${NC}"
+
+                        diff=$((exp_epoch - now_epoch))
+
+                        # Lógica simplificada para mostrar solo la unidad de tiempo mayor
+                        if [[ $diff -ge 86400 ]]; then
+                            days=$((diff / 86400))
+                            [[ $days -eq 1 ]] && time_left="${days} DIA" || time_left="${days} DIAS"
+                        elif [[ $diff -ge 3600 ]]; then
+                            hours=$((diff / 3600))
+                            [[ $hours -eq 1 ]] && time_left="${hours} HORA" || time_left="${hours} HORAS"
+                        elif [[ $diff -ge 60 ]]; then
+                            minutes=$((diff / 60))
+                            [[ $minutes -eq 1 ]] && time_left="${minutes} MINUTO" || time_left="${minutes} MINUTOS"
+                        else
+                            [[ $diff -eq 1 ]] && time_left="${diff} SEGUNDO" || time_left="${diff} SEGUNDOS"
+                        fi
+                    fi
+
+                    if who | grep -q "^${user} "; then
+                        connection="${GREEN}Online${NC}"
+                    else
+                        connection="${GRAY}Offline${NC}"
+                    fi
+
+                    printf " %-9s %-22b %-22b %-24b %-25s\n" \
+                        "$user" \
+                        "$time_left" \
+                        "$status" \
+                        "$connection" \
+                        "${current_dev}/${max_dev}"
                 done
+
+                echo "$BOX_BOT"
+                echo
+                read -p "ENTER para continuar..."
             fi
             ;;
 
