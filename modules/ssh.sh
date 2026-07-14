@@ -41,9 +41,9 @@ fi
 
 if [[ "$CURRENT" -ge "$MAX" ]]; then
     echo ""
-    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "══════════════════════════════════════════════════════════════╗"
     echo "║                    CONEXIÓN RECHAZADA                        ║"
-    echo "══════════════════════════════════════════════════════════════"
+    echo "╠══════════════════════════════════════════════════════════════"
     echo "║  Límite de $MAX dispositivo(s) alcanzado.                     "
     echo "║  Conexiones activas: $CURRENT                                 "
     echo "║  Desconecte un dispositivo antes de intentar nuevamente.     "
