@@ -277,29 +277,93 @@ while true; do
             echo "$BOX_BOT"
             echo
             
-            read -p "Nombre de usuario a eliminar: " username
-            validar_usuario "$username" || { read -p "ENTER para continuar..."; continue; }
+            users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
             
-            if ! id "$username" &>/dev/null; then
-                echo -e "${RED}Error: El usuario '$username' no existe.${NC}"
+            if [[ -z "$users_list" ]]; then
+                echo -e "${RED}No hay usuarios registrados en el sistema.${NC}"
                 read -p "ENTER para continuar..."
                 continue
             fi
 
             echo "$BOX_TOP"
-            read -p "├─ ¿Está seguro de eliminar a '$username'? (s/N): " confirm
+            printf " %-5s %-15s %-24s %-26s\n" "N°" "Usuario" "Expiración" "Estado"
+            echo "$BOX_LINE"
+            
+            i=1
+            declare -a user_array
+            for user in $users_list; do
+                user_array+=("$user")
+                db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
+                if [[ -n "$db_entry" ]]; then
+                    if [[ "$db_entry" == *:*:*:* ]]; then
+                        exp_info=$(echo "$db_entry" | sed -E 's/^[^:]+:[0-9]+:(.*):[0-9]+$/\1/')
+                    else
+                        exp_info=$(echo "$db_entry" | cut -d':' -f3-)
+                    fi
+                    exp_epoch=$(echo "$db_entry" | cut -d':' -f2)
+                else
+                    exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
+                    if [[ "$exp_info" != "never" ]]; then
+                        exp_epoch=$(date -d "$exp_info" +%s 2>/dev/null)
+                    else
+                        exp_epoch=9999999999
+                    fi
+                fi
+                
+                now_epoch=$(date +%s)
+                if [[ "$exp_info" == "never" ]]; then
+                    status="${GREEN}Activo (Sin exp.)${NC}"
+                    exp_info="Nunca"
+                elif [[ $exp_epoch -lt $now_epoch ]]; then
+                    status="${RED}Expirado${NC}"
+                else
+                    status="${GREEN}Activo${NC}"
+                fi
+                
+                printf " %-5s %-15s %-24s %-26b\n" "$i" "$user" "$exp_info" "$status"
+                ((i++))
+            done
+            echo "$BOX_BOT"
+            echo
+            
+            read -p "Ingrese el/los número(s) de usuario a eliminar (ej: 1 o 1,2,3): " selection
+            
+            # Parse selection
+            IFS=',' read -ra selected_indices <<< "$selection"
+            
+            valid_selection=true
+            for idx in "${selected_indices[@]}"; do
+                idx=$(echo "$idx" | tr -d ' ')
+                if ! [[ "$idx" =~ ^[0-9]+$ ]] || [[ "$idx" -lt 1 ]] || [[ "$idx" -gt "${#user_array[@]}" ]]; then
+                    valid_selection=false
+                    break
+                fi
+            done
+            
+            if [[ "$valid_selection" == false ]] || [[ ${#selected_indices[@]} -eq 0 ]]; then
+                echo -e "${RED}Error: Selección inválida.${NC}"
+                read -p "ENTER para continuar..."
+                continue
+            fi
+            
+            echo "$BOX_TOP"
+            read -p "├─ ¿Está seguro de eliminar los usuarios seleccionados? (s/N): " confirm
             echo "$BOX_BOT"
             
             if [[ "$confirm" =~ ^[Ss]$ ]]; then
-                userdel "$username" 2>/dev/null
-                # Eliminar de la base de datos
-                if [[ -f "$DB_FILE" ]]; then
-                    temp_file=$(mktemp)
-                    grep -v "^${username}:" "$DB_FILE" > "$temp_file" 2>/dev/null || true
-                    mv "$temp_file" "$DB_FILE"
-                fi
-                echo
-                echo -e "${GREEN}✅ Usuario '$username' eliminado correctamente.${NC}"
+                for idx in "${selected_indices[@]}"; do
+                    idx=$(echo "$idx" | tr -d ' ')
+                    username="${user_array[$((idx-1))]}"
+                    
+                    userdel "$username" 2>/dev/null
+                    # Eliminar de la base de datos
+                    if [[ -f "$DB_FILE" ]]; then
+                        temp_file=$(mktemp)
+                        grep -v "^${username}:" "$DB_FILE" > "$temp_file" 2>/dev/null || true
+                        mv "$temp_file" "$DB_FILE"
+                    fi
+                    echo -e "${GREEN}✅ Usuario '$username' eliminado correctamente.${NC}"
+                done
             else
                 echo -e "${YELLOW}Operación cancelada.${NC}"
             fi
