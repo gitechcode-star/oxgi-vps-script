@@ -44,7 +44,7 @@ if [[ "$CURRENT" -ge "$MAX" ]]; then
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║                    CONEXIÓN RECHAZADA                        ║"
     echo "╠══════════════════════════════════════════════════════════════╣"
-    echo "║  Límite de $MAX dispositivo(s) alcanzado.                     ║"
+    echo "║  Límite de $MAX dispositivo(s) alcanzado.                     "
     echo "║  Conexiones activas: $CURRENT                                 "
     echo "║  Desconecte un dispositivo antes de intentar nuevamente.     ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
@@ -379,11 +379,71 @@ while true; do
             echo "$BOX_BOT"
             echo
             
-            read -p "Nombre de usuario a renovar: " username
-            validar_usuario "$username" || { read -p "ENTER para continuar..."; continue; }
+            users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
             
-            if ! id "$username" &>/dev/null; then
-                echo -e "${RED}Error: El usuario '$username' no existe.${NC}"
+            if [[ -z "$users_list" ]]; then
+                echo -e "${RED}No hay usuarios registrados en el sistema.${NC}"
+                read -p "ENTER para continuar..."
+                continue
+            fi
+
+            echo "$BOX_TOP"
+            printf " %-5s %-15s %-24s %-26s\n" "N°" "Usuario" "Expiración" "Estado"
+            echo "$BOX_LINE"
+            
+            i=1
+            declare -a user_array
+            for user in $users_list; do
+                user_array+=("$user")
+                db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
+                if [[ -n "$db_entry" ]]; then
+                    if [[ "$db_entry" == *:*:*:* ]]; then
+                        exp_info=$(echo "$db_entry" | sed -E 's/^[^:]+:[0-9]+:(.*):[0-9]+$/\1/')
+                    else
+                        exp_info=$(echo "$db_entry" | cut -d':' -f3-)
+                    fi
+                    exp_epoch=$(echo "$db_entry" | cut -d':' -f2)
+                else
+                    exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
+                    if [[ "$exp_info" != "never" ]]; then
+                        exp_epoch=$(date -d "$exp_info" +%s 2>/dev/null)
+                    else
+                        exp_epoch=9999999999
+                    fi
+                fi
+                
+                now_epoch=$(date +%s)
+                if [[ "$exp_info" == "never" ]]; then
+                    status="${GREEN}Activo (Sin exp.)${NC}"
+                    exp_info="Nunca"
+                elif [[ $exp_epoch -lt $now_epoch ]]; then
+                    status="${RED}Expirado${NC}"
+                else
+                    status="${GREEN}Activo${NC}"
+                fi
+                
+                printf " %-5s %-15s %-24s %-26b\n" "$i" "$user" "$exp_info" "$status"
+                ((i++))
+            done
+            echo "$BOX_BOT"
+            echo
+            
+            read -p "Ingrese el/los número(s) de usuario a renovar (ej: 1 o 1,2,3): " selection
+            
+            # Parse selection
+            IFS=',' read -ra selected_indices <<< "$selection"
+            
+            valid_selection=true
+            for idx in "${selected_indices[@]}"; do
+                idx=$(echo "$idx" | tr -d ' ')
+                if ! [[ "$idx" =~ ^[0-9]+$ ]] || [[ "$idx" -lt 1 ]] || [[ "$idx" -gt "${#user_array[@]}" ]]; then
+                    valid_selection=false
+                    break
+                fi
+            done
+            
+            if [[ "$valid_selection" == false ]] || [[ ${#selected_indices[@]} -eq 0 ]]; then
+                echo -e "${RED}Error: Selección inválida.${NC}"
                 read -p "ENTER para continuar..."
                 continue
             fi
@@ -420,49 +480,55 @@ while true; do
             echo "$BOX_BOT"
             validar_numero "$time_qty" || { read -p "ENTER para continuar..."; continue; }
 
-            # Obtener fecha actual de expiración y límite de dispositivos
-           db_entry=$(grep "^${username}:" "$DB_FILE" 2>/dev/null | head -1)
+            echo "$BOX_TOP"
+            read -p "├─ Número máximo de dispositivos: " max_devices_input
+            echo "$BOX_BOT"
+            
+            # Validar solo que sea un número entero positivo (sin límite máximo)
+            if [[ ! "$max_devices_input" =~ ^[0-9]+$ ]] || [[ "$max_devices_input" -le 0 ]]; then
+                echo -e "${RED}Error: El número de dispositivos debe ser un número entero mayor a 0.${NC}"
+                read -p "ENTER para continuar..."
+                continue
+            fi
 
-            # Obtener dispositivos
-            if [[ "$db_entry" == *:*:*:* ]]; then
-                max_dev=$(echo "$db_entry" | awk -F: '{print $NF}')
-            else
-                max_dev=1
-            fi
-            
-            if [ -z "$max_dev" ] || [ "$max_dev" -le 0 ]; then
-                max_dev=1
-            fi
-            
-            if [[ -n "$db_entry" ]]; then
-                if [[ "$db_entry" == *:*:*:* ]]; then
-                    current_date_str=$(echo "$db_entry" | sed -E 's/^[^:]+:[0-9]+:(.*):[0-9]+$/\1/')
+            # Loop through selected users and renew them
+            for idx in "${selected_indices[@]}"; do
+                idx=$(echo "$idx" | tr -d ' ')
+                username="${user_array[$((idx-1))]}"
+                
+                # Obtener fecha actual de expiración
+                db_entry=$(grep "^${username}:" "$DB_FILE" 2>/dev/null | head -1)
+                
+                if [[ -n "$db_entry" ]]; then
+                    if [[ "$db_entry" == *:*:*:* ]]; then
+                        current_date_str=$(echo "$db_entry" | sed -E 's/^[^:]+:[0-9]+:(.*):[0-9]+$/\1/')
+                    else
+                        current_date_str=$(echo "$db_entry" | cut -d':' -f3-)
+                    fi
+                    new_exp_datetime=$(date -d "$current_date_str + $time_qty $unit_str" "+%Y-%m-%d %H:%M:%S" 2>/dev/null)
                 else
-                    current_date_str=$(echo "$db_entry" | cut -d':' -f3-)
+                    new_exp_datetime=$(date -d "+$time_qty $unit_str" "+%Y-%m-%d %H:%M:%S")
                 fi
-                new_exp_datetime=$(date -d "$current_date_str + $time_qty $unit_str" "+%Y-%m-%d %H:%M:%S" 2>/dev/null)
-            else
-                new_exp_datetime=$(date -d "+$time_qty $unit_str" "+%Y-%m-%d %H:%M:%S")
-            fi
 
-            new_exp_date=$(echo "$new_exp_datetime" | cut -d' ' -f1)
-            new_exp_epoch=$(date -d "$new_exp_datetime" +%s)
+                new_exp_date=$(echo "$new_exp_datetime" | cut -d' ' -f1)
+                new_exp_epoch=$(date -d "$new_exp_datetime" +%s)
 
-            usermod -e "$new_exp_date" "$username" 2>/dev/null
-            
-            # Actualizar DB manteniendo el límite de dispositivos
-            if [[ -f "$DB_FILE" ]]; then
-                temp_file=$(mktemp)
-                grep -v "^${username}:" "$DB_FILE" > "$temp_file" 2>/dev/null || true
-                echo "${username}:${new_exp_epoch}:${new_exp_datetime}:${max_dev}" >> "$temp_file"
-                mv "$temp_file" "$DB_FILE"
-            fi
+                usermod -e "$new_exp_date" "$username" 2>/dev/null
+                
+                # Actualizar DB manteniendo el nuevo límite de dispositivos
+                if [[ -f "$DB_FILE" ]]; then
+                    temp_file=$(mktemp)
+                    grep -v "^${username}:" "$DB_FILE" > "$temp_file" 2>/dev/null || true
+                    echo "${username}:${new_exp_epoch}:${new_exp_datetime}:${max_devices_input}" >> "$temp_file"
+                    mv "$temp_file" "$DB_FILE"
+                fi
 
-            echo
-            echo -e "${GREEN}✅ Usuario '$username' renovado exitosamente.${NC}"
+                echo -e "${GREEN}✅ Usuario '$username' renovado exitosamente.${NC}"
+            done
+
             echo
             echo "$BOX_TOP"
-            echo " Nueva expiración: $new_exp_datetime"
+            echo " Renovación completada para los usuarios seleccionados."
             echo "$BOX_BOT"
             echo
             read -p "ENTER para continuar..."
