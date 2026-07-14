@@ -1,33 +1,30 @@
 #!/bin/bash
 
 CONFIG="/etc/oxgi/config.conf"
+VERSION_FILE="/etc/oxgi/version.conf"
 
 [ -f "$CONFIG" ] && source "$CONFIG"
+[ -f "$VERSION_FILE" ] && source "$VERSION_FILE"
+
+source /usr/local/oxgi/modules/header.sh
 
 while true
 do
 
-clear
-
-# Recargar configuración cada vez que vuelve al menú
+# Recargar configuración y versión
 [ -f "$CONFIG" ] && source "$CONFIG"
+[ -f "$VERSION_FILE" ] && source "$VERSION_FILE"
 
-echo "══════════════════════════════════════"
-echo "              OXGI VPS"
-echo "══════════════════════════════════════"
+show_header
+
+printf "%-20s %-20s\n" "SSH      : $SSH_PORT,$SSH_PORT_ALT" "HTTP     : $HTTP_PORT"
+printf "%-20s %-20s\n" "HTTPS    : $HTTPS_PORT" "WS       : $WS_PORT"
+printf "%-20s %-20s\n" "DROPBEAR : $DROPBEAR_PORT" "BADVPN   : $BADVPN_PORT"
+
 echo
-echo " Version : $VERSION"
+echo "══════════════════════════════════════════════════════════════"
 echo
-echo " SSH      : $SSH_PORT,$SSH_PORT_ALT"
-echo " HTTP     : $HTTP_PORT"
-echo " HTTPS    : $HTTPS_PORT"
-echo " WS       : $WS_PORT"
-echo " DROPBEAR : $DROPBEAR_PORT"
-echo " BADVPN   : $BADVPN_PORT"
-echo
-echo "══════════════════════════════════════"
-echo
-echo " [1] 1SSH Manager"
+echo " [1] SSH Manager"
 echo " [2] V2Ray Manager"
 echo " [3] Monitor"
 echo
@@ -36,9 +33,10 @@ echo " [5] Actualizar Script"
 echo
 echo " [0] Exit"
 echo
-echo "══════════════════════════════════════"
+echo "══════════════════════════════════════════════════════════════"
+echo
 
-read -p "Seleccione una opcion: " opt
+read -p "Seleccione una opción: " opt
 
 case $opt in
 
