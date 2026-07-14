@@ -5,7 +5,7 @@ source /usr/local/oxgi/modules/color.sh
 source /usr/local/oxgi/modules/header.sh
 
 # Definir cajas más anchas para acomodar la nueva columna (80 caracteres)
-BOX_TOP="┌────────────────────────────────────────────────────────────────────────┐"
+BOX_TOP="┌────────────────────────────────────────────────────────────────────────"
 BOX_BOT="└────────────────────────────────────────────────────────────────────────┘"
 BOX_LINE="────────────────────────────────────────────────────────────────────────"
 
@@ -43,7 +43,7 @@ if [[ "$CURRENT" -ge "$MAX" ]]; then
     echo ""
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║                    CONEXIÓN RECHAZADA                        ║"
-    echo "══════════════════════════════════════════════════════════════╣"
+    echo "╠══════════════════════════════════════════════════════════════"
     echo "║  Límite de $MAX dispositivo(s) alcanzado.                     "
     echo "║  Conexiones activas: $CURRENT                                 "
     echo "║  Desconecte un dispositivo antes de intentar nuevamente.     "
@@ -200,7 +200,7 @@ while true; do
             esac
 
             echo "$BOX_TOP"
-            read -p "─ Cantidad: " time_qty
+            read -p "├─ Cantidad: " time_qty
             echo "$BOX_BOT"
             validar_numero "$time_qty" || { read -p "ENTER para continuar..."; continue; }
 
@@ -251,9 +251,9 @@ while true; do
             echo "├─ Dominio: $DOMAIN"
             echo "├─ Usuario: $username"
             echo "├─ Contraseña: $password"
-            echo "─ Dispositivos máx: $max_devices"
+            echo "├─ Dispositivos máx: $max_devices"
             echo "$BOX_LINE"
-            echo "─ SSL: $SSL_PORT"
+            echo "├─ SSL: $SSL_PORT"
             echo "├─ DROPBEAR: $DROPBEAR_PORT"
             echo "─ UDP: $UDP_PORT"
             echo "├─ OpenSSH: $OPENSSH_PORT"
@@ -450,7 +450,7 @@ while true; do
 
             echo
             echo "$BOX_TOP"
-            echo " Seleccione la unidad de tiempo a agregar:"
+            echo " Seleccione la unidad de tiempo:"
             echo "$BOX_BOT"
             echo "$BOX_TOP"
             echo "  [1] Minutos"
@@ -467,10 +467,7 @@ while true; do
                 1) unit_str="minutes" ;;
                 2) unit_str="hours" ;;
                 3) unit_str="days" ;;
-                4) unit_str="days"
-                   read -p "├─ Cantidad de meses: " months_qty
-                   time_qty=$((months_qty * 30))
-                   ;;
+                4) unit_str="months" ;;
                 *) 
                     echo -e "${RED}Opción inválida.${NC}"
                     read -p "ENTER para continuar..."
@@ -478,12 +475,10 @@ while true; do
                     ;;
             esac
 
-            if [[ "$unit_opt" != "4" ]]; then
-                echo "$BOX_TOP"
-                read -p "├─ Cantidad a agregar: " time_qty
-                echo "$BOX_BOT"
-                validar_numero "$time_qty" || { read -p "ENTER para continuar..."; continue; }
-            fi
+            echo "$BOX_TOP"
+            read -p "├─ Cantidad: " time_qty
+            echo "$BOX_BOT"
+            validar_numero "$time_qty" || { read -p "ENTER para continuar..."; continue; }
 
             echo "$BOX_TOP"
             read -p "├─ Número máximo de dispositivos: " max_devices_input
@@ -501,33 +496,32 @@ while true; do
                 idx=$(echo "$idx" | tr -d ' ')
                 username="${user_array[$((idx-1))]}"
                 
-                # Obtener fecha actual de expiración
-                db_entry=$(grep "^${username}:" "$DB_FILE" 2>/dev/null | head -1)
+                # Calcular nueva fecha de expiración desde el momento actual (reemplaza el tiempo anterior)
+                now_epoch=$(date +%s)
                 
-               if [[ -n "$db_entry" ]]; then
-                    if [[ "$db_entry" == *:*:*:* ]]; then
-                        current_date_str=$(echo "$db_entry" | awk -F: '{print $3":"$4":"$5}')
-                    else
-                        current_date_str=$(echo "$db_entry" | cut -d':' -f3-)
-                    fi
-
-                    # Se toma la hora actual como punto de partida para reemplazar el tiempo
-                    current_epoch=$(date +%s)
-
-                    case $unit_str in
-                        minutes) add_seconds=$((time_qty * 60)) ;;
-                        hours)   add_seconds=$((time_qty * 3600)) ;;
-                        days)    add_seconds=$((time_qty * 86400)) ;;
-                    esac
-
-                    new_exp_epoch=$((current_epoch + add_seconds))
-                    new_exp_datetime=$(date -d "@$new_exp_epoch" "+%Y-%m-%d %H:%M:%S")
-                else
-                    new_exp_datetime=$(date -d "+$time_qty $unit_str" "+%Y-%m-%d %H:%M:%S")
-                fi
+                case $unit_str in
+                    minutes) 
+                        add_seconds=$((time_qty * 60))
+                        new_exp_epoch=$((now_epoch + add_seconds))
+                        new_exp_datetime=$(date -d "@$new_exp_epoch" "+%Y-%m-%d %H:%M:%S")
+                        ;;
+                    hours)   
+                        add_seconds=$((time_qty * 3600))
+                        new_exp_epoch=$((now_epoch + add_seconds))
+                        new_exp_datetime=$(date -d "@$new_exp_epoch" "+%Y-%m-%d %H:%M:%S")
+                        ;;
+                    days)    
+                        add_seconds=$((time_qty * 86400))
+                        new_exp_epoch=$((now_epoch + add_seconds))
+                        new_exp_datetime=$(date -d "@$new_exp_epoch" "+%Y-%m-%d %H:%M:%S")
+                        ;;
+                    months)
+                        new_exp_datetime=$(date -d "+$time_qty months" "+%Y-%m-%d %H:%M:%S")
+                        new_exp_epoch=$(date -d "$new_exp_datetime" +%s)
+                        ;;
+                esac
 
                 new_exp_date=$(echo "$new_exp_datetime" | cut -d' ' -f1)
-                new_exp_epoch=$(date -d "$new_exp_datetime" +%s)
 
                 usermod -e "$new_exp_date" "$username" 2>/dev/null
                 chage -E "$new_exp_date" "$username" 2>/dev/null
@@ -541,6 +535,7 @@ while true; do
                 fi
 
                 echo -e "${GREEN}✅ Usuario '$username' renovado exitosamente.${NC}"
+                echo "   Nueva expiración: $new_exp_datetime"
             done
 
             echo
@@ -734,7 +729,7 @@ while true; do
                         if [[ "$db_epoch" -lt "$current_epoch" ]]; then
                             if id "$db_user" &>/dev/null; then
                                 userdel "$db_user" 2>/dev/null
-                                echo -e "${RED}🗑️ Usuario '$db_user' eliminado (Expiró: $db_datetime)${NC}"
+                                echo -e "${RED}️ Usuario '$db_user' eliminado (Expiró: $db_datetime)${NC}"
                                 ((deleted_count++))
                             fi
                         fi
