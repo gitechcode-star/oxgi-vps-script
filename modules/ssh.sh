@@ -4,6 +4,11 @@
 source /usr/local/oxgi/modules/color.sh
 source /usr/local/oxgi/modules/header.sh
 
+# Definir cajas más simples para mejor compatibilidad con móviles
+BOX_TOP="+--------------------------------------------------------------------------------+"
+BOX_BOT="+--------------------------------------------------------------------------------+"
+BOX_LINE="--------------------------------------------------------------------------------"
+
 # Archivo de base de datos local
 mkdir -p /etc/oxgi
 DB_FILE="/etc/oxgi/ssh_users.db"
@@ -58,25 +63,6 @@ chmod +x "$SHELL_SCRIPT"
 if ! grep -q "$SHELL_SCRIPT" /etc/shells 2>/dev/null; then
     echo "$SHELL_SCRIPT" >> /etc/shells
 fi
-
-# Función para generar línea horizontal dinámica
-generar_linea() {
-    local ancho=$1
-    local caracter=${2:-"-"}
-    printf "%${ancho}s" | tr ' ' "$caracter"
-}
-
-# Función para generar caja superior dinámica
-generar_caja_superior() {
-    local ancho=$1
-    echo "+$(generar_linea $((ancho-2)) '-')+"
-}
-
-# Función para generar caja inferior dinámica
-generar_caja_inferior() {
-    local ancho=$1
-    echo "+$(generar_linea $((ancho-2)) '-')+"
-}
 
 # Función auxiliar para validar nombre de usuario
 validar_usuario() {
@@ -155,6 +141,8 @@ while true; do
     echo -e "${CYAN}[6]${NC} Lista de Usuarios"
     echo -e "${CYAN}[7]${NC} Eliminar Expirados"
     echo ""
+    echo -e "${RED}[0]${NC} Regresar"
+    echo ""
     echo -e "${BLUE}================================================================================${NC}"
     echo ""
 
@@ -164,10 +152,9 @@ while true; do
         1)
             clear
             show_header
-            BOX_WIDTH=80
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_TOP"
             echo " Crear Usuario SSH"
-            generar_caja_inferior $BOX_WIDTH
+            echo "$BOX_BOT"
             echo ""
             
             read -p "Nombre de usuario: " username
@@ -186,19 +173,19 @@ while true; do
             fi
 
             echo ""
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_TOP"
             echo " Seleccione la unidad de tiempo:"
-            generar_caja_inferior $BOX_WIDTH
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_BOT"
+            echo "$BOX_TOP"
             echo "  [1] Minutos"
             echo "  [2] Horas"
             echo "  [3] Días"
             echo "  [4] Meses (30 días)"
-            generar_caja_inferior $BOX_WIDTH
+            echo "$BOX_BOT"
             
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_TOP"
             read -p "| Opción: " unit_opt
-            generar_caja_inferior $BOX_WIDTH
+            echo "$BOX_BOT"
             
             case $unit_opt in
                 1) unit_str="minutes" ;;
@@ -212,14 +199,14 @@ while true; do
                     ;;
             esac
 
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_TOP"
             read -p "| Cantidad: " time_qty
-            generar_caja_inferior $BOX_WIDTH
+            echo "$BOX_BOT"
             validar_numero "$time_qty" || { read -p "ENTER para continuar..."; continue; }
 
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_TOP"
             read -p "| Número máximo de dispositivos: " max_devices
-            generar_caja_inferior $BOX_WIDTH
+            echo "$BOX_BOT"
             
             # Validar solo que sea un número entero positivo (sin límite máximo)
             if [[ ! "$max_devices" =~ ^[0-9]+$ ]] || [[ "$max_devices" -le 0 ]]; then
@@ -259,13 +246,13 @@ while true; do
             echo ""
             echo -e "${GREEN}Usuario creado exitosamente.${NC}"
             echo ""
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_TOP"
             echo ""
             echo "| Dominio: $DOMAIN"
             echo "| Usuario: $username"
             echo "| Contraseña: $password"
             echo "| Dispositivos máx: $max_devices"
-            generar_linea $BOX_WIDTH "-"
+            echo "$BOX_LINE"
             echo "| SSL: $SSL_PORT"
             echo "| DROPBEAR: $DROPBEAR_PORT"
             echo "| UDP: $UDP_PORT"
@@ -273,11 +260,11 @@ while true; do
             echo "| WebSocket: $WEBSOCKET_PORT"
             echo "| V2Ray: $V2RAY_PORT"
             echo ""
-            generar_caja_inferior $BOX_WIDTH
+            echo "$BOX_BOT"
             echo ""
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_TOP"
             echo " Expira el: $exp_datetime"
-            generar_caja_inferior $BOX_WIDTH
+            echo "$BOX_BOT"
             echo ""
             read -p "ENTER para continuar..."
             ;;
@@ -285,10 +272,9 @@ while true; do
         2)
             clear
             show_header
-            BOX_WIDTH=80
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_TOP"
             echo " Eliminar Usuario SSH"
-            generar_caja_inferior $BOX_WIDTH
+            echo "$BOX_BOT"
             echo ""
             
             users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
@@ -299,9 +285,9 @@ while true; do
                 continue
             fi
 
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_TOP"
             printf "| %-4s | %-15s | %-24s | %-26s |\n" "N°" "Usuario" "Expiración" "Estado"
-            generar_linea $BOX_WIDTH "-"
+            echo "$BOX_LINE"
             
             i=1
             declare -a user_array
@@ -337,7 +323,7 @@ while true; do
                 printf "| %-4s | %-15s | %-24s | %-26b |\n" "$i" "$user" "$exp_info" "$status"
                 ((i++))
             done
-            generar_caja_inferior $BOX_WIDTH
+            echo "$BOX_BOT"
             echo ""
             
             read -p "Ingrese el/los número(s) de usuario a eliminar (ej: 1 o 1,2,3): " selection
@@ -360,9 +346,9 @@ while true; do
                 continue
             fi
             
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_TOP"
             read -p "| ¿Está seguro de eliminar los usuarios seleccionados? (s/N): " confirm
-            generar_caja_inferior $BOX_WIDTH
+            echo "$BOX_BOT"
             
             if [[ "$confirm" =~ ^[Ss]$ ]]; then
                 for idx in "${selected_indices[@]}"; do
@@ -388,10 +374,9 @@ while true; do
         3)
             clear
             show_header
-            BOX_WIDTH=80
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_TOP"
             echo " Renovar Usuario SSH"
-            generar_caja_inferior $BOX_WIDTH
+            echo "$BOX_BOT"
             echo ""
             
             users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
@@ -402,9 +387,9 @@ while true; do
                 continue
             fi
 
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_TOP"
             printf "| %-4s | %-15s | %-24s | %-26s |\n" "N°" "Usuario" "Expiración" "Estado"
-            generar_linea $BOX_WIDTH "-"
+            echo "$BOX_LINE"
             
             i=1
             declare -a user_array
@@ -440,7 +425,7 @@ while true; do
                 printf "| %-4s | %-15s | %-24s | %-26b |\n" "$i" "$user" "$exp_info" "$status"
                 ((i++))
             done
-            generar_caja_inferior $BOX_WIDTH
+            echo "$BOX_BOT"
             echo ""
             
             read -p "Ingrese el/los número(s) de usuario a renovar (ej: 1 o 1,2,3): " selection
@@ -464,19 +449,19 @@ while true; do
             fi
 
             echo ""
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_TOP"
             echo " Seleccione la unidad de tiempo:"
-            generar_caja_inferior $BOX_WIDTH
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_BOT"
+            echo "$BOX_TOP"
             echo "  [1] Minutos"
             echo "  [2] Horas"
             echo "  [3] Días"
             echo "  [4] Meses (30 días)"
-            generar_caja_inferior $BOX_WIDTH
+            echo "$BOX_BOT"
             
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_TOP"
             read -p "| Opción: " unit_opt
-            generar_caja_inferior $BOX_WIDTH
+            echo "$BOX_BOT"
 
             case $unit_opt in
                 1) unit_str="minutes" ;;
@@ -490,14 +475,14 @@ while true; do
                     ;;
             esac
 
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_TOP"
             read -p "| Cantidad: " time_qty
-            generar_caja_inferior $BOX_WIDTH
+            echo "$BOX_BOT"
             validar_numero "$time_qty" || { read -p "ENTER para continuar..."; continue; }
 
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_TOP"
             read -p "| Número máximo de dispositivos: " max_devices_input
-            generar_caja_inferior $BOX_WIDTH
+            echo "$BOX_BOT"
             
             # Validar solo que sea un número entero positivo (sin límite máximo)
             if [[ ! "$max_devices_input" =~ ^[0-9]+$ ]] || [[ "$max_devices_input" -le 0 ]]; then
@@ -554,9 +539,9 @@ while true; do
             done
 
             echo ""
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_TOP"
             echo " Renovación completada para los usuarios seleccionados."
-            generar_caja_inferior $BOX_WIDTH
+            echo "$BOX_BOT"
             echo ""
             read -p "ENTER para continuar..."
             ;;
@@ -564,10 +549,9 @@ while true; do
         4)
             clear
             show_header
-            BOX_WIDTH=80
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_TOP"
             echo " Cambiar Contraseña"
-            generar_caja_inferior $BOX_WIDTH
+            echo "$BOX_BOT"
             echo ""
             
             read -p "Nombre de usuario: " username
@@ -595,10 +579,9 @@ while true; do
         5)
             clear
             show_header
-            BOX_WIDTH=80
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_TOP"
             echo " Usuarios Online"
-            generar_caja_inferior $BOX_WIDTH
+            echo "$BOX_BOT"
             echo ""
             
             online_users=$(who | awk '{print $1}' | sort -u)
@@ -606,11 +589,11 @@ while true; do
             if [[ -z "$online_users" ]]; then
                 echo -e "${RED}No hay usuarios conectados en este momento.${NC}"
             else
-                generar_caja_superior $BOX_WIDTH
+                echo "$BOX_TOP"
                 printf "| %-11s | %-9s | %-17s | %-10s | %-8s |\n" "Usuario" "Terminal" "IP/Puerto" "Fecha" "Hora"
-                generar_linea $BOX_WIDTH "-"
+                echo "$BOX_LINE"
                 who | awk '{printf "| %-11s | %-9s | %-17s | %-10s | %-8s |\n", $1, $2, $5, $3, $4}'
-                generar_caja_inferior $BOX_WIDTH
+                echo "$BOX_BOT"
             fi
             echo ""
             read -p "ENTER para continuar..."
@@ -619,10 +602,9 @@ while true; do
         6)
             clear
             show_header
-            BOX_WIDTH=82
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_TOP"
             echo " Lista de Usuarios"
-            generar_caja_inferior $BOX_WIDTH
+            echo "$BOX_BOT"
             echo ""
             
             users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
@@ -632,9 +614,9 @@ while true; do
                 echo ""
                 read -p "ENTER para continuar..."
             else
-                generar_caja_superior $BOX_WIDTH
+                echo "$BOX_TOP"
                 printf "| %-12s | %-20s | %-12s | %-10s | %-12s |\n" "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
-                generar_linea $BOX_WIDTH "-"
+                echo "$BOX_LINE"
                 
                 while true; do
                     for user in $users_list; do
@@ -712,7 +694,7 @@ while true; do
                         "$user" "$time_left" "$status" "$connection" "${current_dev}/${max_dev}"
                     done
                     
-                    generar_caja_inferior $BOX_WIDTH
+                    echo "$BOX_BOT"
                     echo ""
                     echo -ne "Presione cualquier tecla para continuar..."
                     
@@ -728,13 +710,13 @@ while true; do
                     # Limpiar y redibujar
                     clear
                     show_header
-                    generar_caja_superior $BOX_WIDTH
+                    echo "$BOX_TOP"
                     echo " Lista de Usuarios"
-                    generar_caja_inferior $BOX_WIDTH
+                    echo "$BOX_BOT"
                     echo ""
-                    generar_caja_superior $BOX_WIDTH
+                    echo "$BOX_TOP"
                     printf "| %-12s | %-20s | %-12s | %-10s | %-12s |\n" "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
-                    generar_linea $BOX_WIDTH "-"
+                    echo "$BOX_LINE"
                 done
             fi
             ;;
@@ -742,10 +724,9 @@ while true; do
         7)
             clear
             show_header
-            BOX_WIDTH=80
-            generar_caja_superior $BOX_WIDTH
+            echo "$BOX_TOP"
             echo " Eliminar Usuarios Expirados"
-            generar_caja_inferior $BOX_WIDTH
+            echo "$BOX_BOT"
             echo ""
             
             deleted_count=0
@@ -791,13 +772,13 @@ while true; do
             
             echo ""
             if [[ $deleted_count -eq 0 ]]; then
-                generar_caja_superior $BOX_WIDTH
+                echo "$BOX_TOP"
                 echo " No se encontraron usuarios expirados."
-                generar_caja_inferior $BOX_WIDTH
+                echo "$BOX_BOT"
             else
-                generar_caja_superior $BOX_WIDTH
+                echo "$BOX_TOP"
                 echo " Se eliminaron $deleted_count usuario(s) expirado(s)."
-                generar_caja_inferior $BOX_WIDTH
+                echo "$BOX_BOT"
             fi
             echo ""
             read -p "ENTER para continuar..."
