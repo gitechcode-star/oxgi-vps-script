@@ -622,18 +622,8 @@ while true; do
                 echo -ne "\e[s"
                 
                 while true; do
-                    clear
-                    show_header
-
-                    echo "$BOX_TOP"
-                    echo " Lista de Usuarios"
-                    echo "$BOX_BOT"
-                    echo
-
-                    echo "$BOX_TOP"
-                    printf " %-10s %-22s %-10s %-10s %-10s\n" \
-                        "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
-                    echo "$BOX_LINE"
+                    # Restaurar cursor y limpiar solo las filas de datos para evitar parpadeo
+                    echo -ne "\e[u\e[J"
 
                     for user in $users_list; do
                         exp_info=""
