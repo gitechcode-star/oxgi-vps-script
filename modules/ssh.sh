@@ -535,7 +535,7 @@ while true; do
                 echo -e "${RED}No hay usuarios registrados en el sistema.${NC}"
             else
                 echo "$BOX_TOP"
-                printf " %-12s %-20s %-15s %-8s %-10s\n" \
+                printf " %-12s %-20s %-15s %-10s %-10s\n" \
                 "Usuario" "Expiración" "Estado" "Conexión" "Dispositivos"
                 echo "$BOX_LINE"
                 for user in $users_list; do
