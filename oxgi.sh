@@ -17,13 +17,9 @@ do
 [ -f "$VERSION_FILE" ] && source "$VERSION_FILE"
 
 if [ -f "$AUTOSTART_FILE" ]; then
-    AUTOSTART="ON"
-    AUTOSTART_COLOR="$BLUE"
-    AUTOSTART_STATUS="●"
+    AUTOSTART_STATUS="${GREEN}[✔️]${NC}"
 else
-    AUTOSTART="OFF"
-    AUTOSTART_COLOR="$RED"
-    AUTOSTART_STATUS="●"
+    AUTOSTART_STATUS="${RED}[❌]${NC}"
 fi
 
 clear
@@ -52,7 +48,7 @@ echo
 echo -e "${CYAN}${NC}"
 echo -e "${CYAN}${NC} ${CYAN}[01]${NC} SSH Manager        ${CYAN}[04]${NC} Configuración"
 echo -e "${CYAN}${NC} ${CYAN}[02]${NC} V2Ray Manager      ${CYAN}[05]${NC} Actualizar Script"
-echo -e "${CYAN}${NC} ${CYAN}[03]${NC} Monitor            ${CYAN}[06]${NC} Auto Iniciar ${AUTOSTART_COLOR}${AUTOSTART_STATUS}${NC}"
+echo -e "${CYAN}${NC} ${CYAN}[03]${NC} Monitor            ${CYAN}[06]${NC} Auto Iniciar ${AUTOSTART_STATUS}"
 echo -e "${CYAN}${NC}"
 
 echo
@@ -95,9 +91,11 @@ case $opt in
 
         sed -i '/# OXGI AUTOSTART START/,/# OXGI AUTOSTART END/d' /root/.bashrc
 
+        clear
         echo
         echo -e "${RED}Auto iniciar desactivado${NC}"
-        echo -e "${WHITE}Ahora será necesario escribir:${NC} ${CYAN}oxgi${NC}"
+        echo -e "${WHITE}Ahora será necesario ejecutar:${NC} ${CYAN}oxgi${NC}"
+        echo
         sleep 2
 
     else
@@ -110,17 +108,19 @@ case $opt in
 
 # OXGI AUTOSTART START
 if [ -z "$OXGI_AUTO_STARTED" ]; then
-export OXGI_AUTO_STARTED=1
-oxgi
-exit
+    export OXGI_AUTO_STARTED=1
+    oxgi
+    exit
 fi
 # OXGI AUTOSTART END
 
 EOF
 
+        clear
         echo
-        echo -e "${BLUE}Auto iniciar activado${NC}"
-        echo -e "${WHITE}Al iniciar sesión se abrirá automáticamente OXGI VPS${NC}"
+        echo -e "${GREEN}Auto iniciar activado${NC}"
+        echo -e "${WHITE}El menú OXGI VPS se abrirá automáticamente al iniciar sesión.${NC}"
+        echo
         sleep 2
 
     fi
