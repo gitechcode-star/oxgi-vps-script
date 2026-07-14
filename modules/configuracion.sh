@@ -16,17 +16,11 @@ show_header
 
 echo
 
-printf "${WHITE}%-30s %-30s${NC}\n" \
-"${CYAN}SSH      :${NC} ${GREEN}$SSH_PORT,$SSH_PORT_ALT${NC}" \
-"${CYAN}HTTP     :${NC} ${GREEN}$HTTP_PORT${NC}"
+echo -e "${CYAN}SSH      :${NC} ${GREEN}$SSH_PORT,$SSH_PORT_ALT${NC}    ${CYAN}HTTP     :${NC} ${GREEN}$HTTP_PORT${NC}"
 
-printf "${WHITE}%-30s %-30s${NC}\n" \
-"${CYAN}HTTPS    :${NC} ${GREEN}$HTTPS_PORT${NC}" \
-"${CYAN}WS       :${NC} ${GREEN}$WS_PORT${NC}"
+echo -e "${CYAN}HTTPS    :${NC} ${GREEN}$HTTPS_PORT${NC}    ${CYAN}WS       :${NC} ${GREEN}$WS_PORT${NC}"
 
-printf "${WHITE}%-30s %-30s${NC}\n" \
-"${CYAN}DROPBEAR :${NC} ${GREEN}$DROPBEAR_PORT${NC}" \
-"${CYAN}BADVPN   :${NC} ${GREEN}$BADVPN_PORT${NC}"
+echo -e "${CYAN}DROPBEAR :${NC} ${GREEN}$DROPBEAR_PORT${NC}    ${CYAN}BADVPN   :${NC} ${GREEN}$BADVPN_PORT${NC}"
 
 echo
 
