@@ -9,29 +9,28 @@ AUTHOR="@CodeNex_oficial"
 REPO_URL="https://github.com/gitechcode-star/oxgi-vps-script.git"
 INSTALL_DIR="/usr/local/oxgi"
 
-source "$(dirname "$0")/modules/color.sh"
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+CYAN='\033[0;36m'
+NC='\033[0m'
 
 progress_bar() {
-    local current="$1"
-    local total="$2"
-    local text="$3"
+local current="$1"
+local total="$2"
+local text="$3"
 
-    echo
-    echo -e "${CYAN}[${current}/${total}]${NC} ${text}"
+```
+echo
+echo -e "${CYAN}[${current}/${total}]${NC} ${text}"
 
-    for ((i=0; i<=100; i+=5)); do
-        filled=$((i/2))
-        empty=$((50-filled))
+for ((i=0; i<=100; i+=5)); do
+    printf "\r${GREEN}[%3d%%]${NC}" "$i"
+    sleep 0.02
+done
 
-        printf "\r${GREEN}"
-        printf "%0.s█" $(seq 1 $filled)
-        printf "%0.s░" $(seq 1 $empty)
-        printf " %3d%%${NC}" "$i"
+echo
+```
 
-        sleep 0.02
-    done
-
-    echo
 }
 
 echo -e "${CYAN}"
@@ -41,15 +40,17 @@ echo "======================================"
 echo -e "${NC}"
 
 # ROOT
+
 if [ "$EUID" -ne 0 ]; then
-    echo -e "${RED}[ERROR] Ejecuta como root${NC}"
-    exit 1
+echo -e "${RED}[ERROR] Ejecuta como root${NC}"
+exit 1
 fi
 
 # UBUNTU
+
 if ! grep -qi "ubuntu" /etc/os-release; then
-    echo -e "${RED}[ERROR] Ubuntu requerido${NC}"
-    exit 1
+echo -e "${RED}[ERROR] Ubuntu requerido${NC}"
+exit 1
 fi
 
 progress_bar 1 7 "Actualizando sistema..."
@@ -57,14 +58,14 @@ apt update -y
 apt upgrade -y
 
 progress_bar 2 7 "Instalando dependencias..."
-apt install -y \
-git \
-curl \
-wget \
-unzip \
-sudo \
-cron \
-ufw \
+apt install -y 
+git 
+curl 
+wget 
+unzip 
+sudo 
+cron 
+ufw 
 nginx
 
 progress_bar 3 7 "Descargando OXGI..."
@@ -74,8 +75,8 @@ rm -rf "$INSTALL_DIR"
 git clone "$REPO_URL" "$INSTALL_DIR"
 
 if [ ! -d "$INSTALL_DIR" ]; then
-    echo -e "${RED}[ERROR] No se pudo descargar OXGI${NC}"
-    exit 1
+echo -e "${RED}[ERROR] No se pudo descargar OXGI"
+exit 1
 fi
 
 progress_bar 4 7 "Configurando permisos..."
@@ -89,30 +90,38 @@ progress_bar 5 7 "Creando configuración..."
 mkdir -p /etc/oxgi
 
 cat > /etc/oxgi/config.conf << 'EOF'
+
 # SSH
+
 SSH_PORT="22"
 SSH_PORT_ALT="3303"
 
 # HTTP
+
 HTTP_PORT="80"
 HTTPS_PORT="443"
 
 # WebSocket
+
 WS_PORT="700"
 
 # Dropbear
+
 DROPBEAR_PORT="444"
 
 # BadVPN
+
 BADVPN_PORT="7300"
 
 # Xray
+
 VLESS_PORT="8443"
 VMESS_PORT="8080"
 TROJAN_PORT="2083"
 SS_PORT="8388"
 
 # Features
+
 ENABLE_VLESS="true"
 ENABLE_VMESS="true"
 ENABLE_TROJAN="true"
