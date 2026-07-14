@@ -15,6 +15,7 @@ do
 [ -f "$CONFIG" ] && source "$CONFIG"
 [ -f "$VERSION_FILE" ] && source "$VERSION_FILE"
 
+clear
 show_header
 
 printf "${WHITE}%-30s %-30s${NC}\n" \
@@ -38,9 +39,9 @@ echo -e "${CYAN}└────────────────────�
 echo
 
 echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${NC} ${YELLOW}[01]${NC} SSH Manager        ${YELLOW}[04]${NC} Configuración          ${CYAN}│${NC}"
-echo -e "${CYAN}│${NC} ${YELLOW}[02]${NC} V2Ray Manager      ${YELLOW}[05]${NC} Actualizar Script      ${CYAN}│${NC}"
-echo -e "${CYAN}│${NC} ${YELLOW}[03]${NC} Monitor                                      ${CYAN}│${NC}"
+echo -e "${CYAN}│${NC} ${CYAN}[01]${NC} SSH Manager        ${CYAN}[04]${NC} Configuración          ${CYAN}│${NC}"
+echo -e "${CYAN}│${NC} ${CYAN}[02]${NC} V2Ray Manager      ${CYAN}[05]${NC} Actualizar Script      ${CYAN}│${NC}"
+echo -e "${CYAN}│${NC} ${CYAN}[03]${NC} Monitor                                      ${CYAN}│${NC}"
 echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
 
 echo
@@ -50,8 +51,7 @@ echo -e "${CYAN}│${NC} ${RED}[00]${NC} Exit                                   
 echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
 
 echo
-echo -ne "${WHITE}Seleccione una opción: ${NC}"
-read opt
+read -p "Seleccione una opción: " opt
 
 case $opt in
 
