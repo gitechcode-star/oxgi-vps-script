@@ -535,7 +535,8 @@ while true; do
                 echo -e "${RED}No hay usuarios registrados en el sistema.${NC}"
             else
                 echo "$BOX_TOP"
-                printf " %-12s %-20s %-12s %-10s %-12s\n" "Usuario" "Expiración" "Estado" "Conexión" "Dispositivos"
+                printf " %-12s %-20s %-15s %-15s %-10s\n" \
+                "Usuario" "Expiración" "Estado" "Conexión" "Dispositivos"
                 echo "$BOX_LINE"
                 for user in $users_list; do
                     db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
@@ -591,7 +592,8 @@ while true; do
                     fi
                     
                     # Imprimir fila con formato ajustado
-                    printf " %-12s %-20s %-12b %-10b %s/%s\n" "$user" "$exp_info" "$status" "$connection" "$current_dev" "$max_dev"
+                    printf " %-12s %-20s %-15b %-15b %-10s\n" \
+                    "$user" "$exp_info" "$status" "$connection" "${current_dev}/${max_dev}"
                 done
                 echo "$BOX_BOT"
             fi
