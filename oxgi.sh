@@ -48,7 +48,7 @@ echo
 echo -e "${CYAN}${NC}"
 echo -e "${CYAN}${NC} ${CYAN}[01]${NC} SSH Manager        ${CYAN}[04]${NC} Configuración"
 echo -e "${CYAN}${NC} ${CYAN}[02]${NC} V2Ray Manager      ${CYAN}[05]${NC} Actualizar Script"
-echo -e "${CYAN}${NC} ${CYAN}[03]${NC} Monitor            ${CYAN}[06]${NC} Auto Iniciar ${AUTOSTART_STATUS }"
+echo -e "${CYAN}${NC} ${CYAN}[03]${NC} Monitor            ${CYAN}[06]${NC} Auto Iniciar ${AUTOSTART_STATUS}"
 echo -e "${CYAN}${NC}"
 
 echo
@@ -109,8 +109,8 @@ case $opt in
 # OXGI AUTOSTART START
 if [ -z "$OXGI_AUTO_STARTED" ]; then
     export OXGI_AUTO_STARTED=1
-    oxgi
-    exit
+    clear
+    /usr/local/oxgi/oxgi.sh
 fi
 # OXGI AUTOSTART END
 
