@@ -36,6 +36,16 @@ validar_numero() {
     return 0
 }
 
+# Función para verificar si un usuario está online
+usuario_online() {
+    local user="$1"
+    if who | grep -q "^$user "; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 while true; do
     clear
     show_header
@@ -330,7 +340,7 @@ while true; do
                 echo -e "${RED}No hay usuarios registrados en el sistema.${NC}"
             else
                 echo "$BOX_TOP"
-                printf " %-11s %-23s %s\n" "Usuario" "Expiración Precisa" "Estado"
+                printf " %-11s %-23s %-12s %s\n" "Usuario" "Expiración Precisa" "Estado" "Conexión"
                 echo "$BOX_LINE"
                 for user in $users_list; do
                     db_entry=$(grep "^$user:" "$DB_FILE" 2>/dev/null)
@@ -355,7 +365,15 @@ while true; do
                     else
                         status="${GREEN}Activo${NC}"
                     fi
-                    printf " %-11s %-23s %b\n" "$user" "$exp_info" "$status"
+                    
+                    # Verificar si está online
+                    if usuario_online "$user"; then
+                        connection="${GREEN}Online${NC}"
+                    else
+                        connection="${GRAY}Offline${NC}"
+                    fi
+                    
+                    printf " %-11s %-23s %b %b\n" "$user" "$exp_info" "$status" "$connection"
                 done
                 echo "$BOX_BOT"
             fi
