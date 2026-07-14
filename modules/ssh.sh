@@ -619,11 +619,8 @@ while true; do
                 printf " %-10s %-22s %-10s %-10s %-10s\n" "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
                 echo "$BOX_LINE"
                 
-                # Guardar número de línea donde empiezan los datos (después del header)
-                data_start_line=$(($(tput lines) - 5))
-                
                 while true; do
-                    # Mover cursor al inicio de los datos y limpiar solo esa área
+                    # Mover cursor al inicio de los datos y limpiar solo esa área para evitar parpadeo
                     echo -ne "\e[11;1H\e[J"
                     
                     for user in $users_list; do
@@ -667,27 +664,26 @@ while true; do
 
                         elif [[ $exp_epoch -le $now_epoch ]]; then
                             status="${RED}Expirado${NC}"
-                            time_left="${RED}00:00:00:00:00${NC}"
+                            time_left="${RED}0 SEGUNDOS${NC}"
 
                         else
                             status="${GREEN}Activo${NC}"
 
                             diff=$((exp_epoch - now_epoch))
 
-                            months=$((diff / 2592000))
-                            remaining=$((diff % 2592000))
-
-                            days=$((remaining / 86400))
-                            remaining=$((remaining % 86400))
-
-                            hours=$((remaining / 3600))
-                            remaining=$((remaining % 3600))
-
-                            minutes=$((remaining / 60))
-                            seconds=$((remaining % 60))
-
-                            time_left=$(printf "%02d:%02d:%02d:%02d:%02d" \
-                                $months $days $hours $minutes $seconds)
+                            # Lógica simplificada para mostrar solo la unidad de tiempo mayor
+                            if [[ $diff -ge 86400 ]]; then
+                                days=$((diff / 86400))
+                                [[ $days -eq 1 ]] && time_left="${days} DIA" || time_left="${days} DIAS"
+                            elif [[ $diff -ge 3600 ]]; then
+                                hours=$((diff / 3600))
+                                [[ $hours -eq 1 ]] && time_left="${hours} HORA" || time_left="${hours} HORAS"
+                            elif [[ $diff -ge 60 ]]; then
+                                minutes=$((diff / 60))
+                                [[ $minutes -eq 1 ]] && time_left="${minutes} MINUTO" || time_left="${minutes} MINUTOS"
+                            else
+                                [[ $diff -eq 1 ]] && time_left="${diff} SEGUNDO" || time_left="${diff} SEGUNDOS"
+                            fi
                         fi
 
                         if who | grep -q "^${user} "; then
