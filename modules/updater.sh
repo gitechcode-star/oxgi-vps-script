@@ -9,51 +9,29 @@ echo "      OXGI UPDATER"
 echo "══════════════════════════════"
 echo
 
-if [ ! -d "$REPO_DIR/.git" ]; then
-    echo "[ERROR] Repositorio Git no encontrado."
-    echo
-    read -p "ENTER para continuar..."
-    exit 1
-fi
-
-echo "[+] Buscando actualizaciones..."
-echo
-
 cd "$REPO_DIR" || exit 1
+
+echo "[+] Sincronizando con GitHub..."
+echo
 
 git fetch origin
 
-LOCAL=$(git rev-parse HEAD)
-REMOTE=$(git rev-parse origin/main)
-
-if [ "$LOCAL" = "$REMOTE" ]; then
-    echo "[OK] Ya tienes la ultima version."
-    echo
-    read -p "ENTER para continuar..."
-    exit 0
-fi
-
-echo "[+] Descargando cambios..."
+echo "[+] Aplicando cambios..."
 echo
 
-git reset --hard HEAD
+git reset --hard origin/main
 git clean -fd
 
-if git pull origin main; then
+chmod +x oxgi.sh
+chmod +x modules/*.sh
 
-    chmod +x "$REPO_DIR"/oxgi.sh
-    chmod +x "$REPO_DIR"/modules/*.sh
+echo
+echo "[OK] Actualizacion completada."
+echo
 
-    echo
-    echo "[OK] Script actualizado correctamente."
-    echo
+CURRENT=$(git rev-parse --short HEAD)
 
-else
-
-    echo
-    echo "[ERROR] No se pudo actualizar."
-    echo
-
-fi
+echo "Commit actual: $CURRENT"
+echo
 
 read -p "ENTER para continuar..."
