@@ -619,17 +619,24 @@ while true; do
                 continue
             fi
 
+            clear
+            show_header
+            echo "$BOX_TOP"
+            echo " Lista de Usuarios"
+            echo "$BOX_BOT"
+            echo
+            
+            echo "$BOX_TOP"
+            printf " %-10s %-18s %-10s %-10s %-10s\n" "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
+            echo "$BOX_LINE"
+            
+            # Guardar posición del cursor justo antes de las filas de datos
+            echo -ne "\e[s"
+            
+            # Bucle de actualización en tiempo real sin parpadeo
             while true; do
-                clear
-                show_header
-                echo "$BOX_TOP"
-                echo " Lista de Usuarios"
-                echo "$BOX_BOT"
-                echo
-                
-                echo "$BOX_TOP"
-                printf " %-10s %-18s %-10s %-10s %-10s\n" "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
-                echo "$BOX_LINE"
+                # Restaurar posición del cursor
+                echo -ne "\e[u"
                 
                 for user in $users_list; do
                     exp_info=""
@@ -686,16 +693,19 @@ while true; do
                         connection="${GRAY}Offline${NC}"
                     fi
                     
-                    # Imprimir fila con formato ajustado
-                    printf " %-9s %-18s %-22b %-24b %-25s\n" \
+                    # Imprimir fila con formato ajustado y limpiar exceso de línea anterior
+                    printf " %-9s %-18s %-22b %-24b %-25s\e[K\n" \
                     "$user" "$time_left" "$status" "$connection" "${current_dev}/${max_dev}"
                 done
-                echo "$BOX_BOT"
-                echo
-                echo -e "Presione cualquier tecla para continuar..."
+                echo -e "$BOX_BOT\e[K"
+                echo -e "\e[K"
+                echo -ne "Presione cualquier tecla para continuar...\e[K"
                 
-                read -t 1 -n 1 key
+                read -s -t 1 -n 1 key
                 if [[ -n "$key" ]]; then
+                    # Limpiar buffer de entrada de caracteres residuales
+                    while read -s -t 0.1 -n 1; do :; done
+                    echo
                     break
                 fi
             done
