@@ -357,12 +357,25 @@ while true; do
             validar_numero "$time_qty" || { read -p "ENTER para continuar..."; continue; }
 
             # Obtener fecha actual de expiración y límite de dispositivos
-            db_entry=$(grep "^${username}:" "$DB_FILE" 2>/dev/null | head -1)
-            max_dev=$(echo "$db_entry" | cut -d':' -f4)
-            if [ -z "$max_dev" ] || [ "$max_dev" -le 0 ]; then max_dev=1; fi
+           db_entry=$(grep "^${username}:" "$DB_FILE" 2>/dev/null | head -1)
 
+            # Obtener dispositivos
+            if [[ "$db_entry" == *:*:*:* ]]; then
+                max_dev=$(echo "$db_entry" | awk -F: '{print $NF}')
+            else
+                max_dev=1
+            fi
+            
+            if [ -z "$max_dev" ] || [ "$max_dev" -le 0 ]; then
+                max_dev=1
+            fi
+            
             if [[ -n "$db_entry" ]]; then
-                current_date_str=$(echo "$db_entry" | cut -d':' -f3)
+                if [[ "$db_entry" == *:*:*:* ]]; then
+                    current_date_str=$(echo "$db_entry" | sed -E 's/^[^:]+:[0-9]+:(.*):[0-9]+$/\1/')
+                else
+                    current_date_str=$(echo "$db_entry" | cut -d':' -f3-)
+                fi
                 new_exp_datetime=$(date -d "$current_date_str + $time_qty $unit_str" "+%Y-%m-%d %H:%M:%S" 2>/dev/null)
             else
                 new_exp_datetime=$(date -d "+$time_qty $unit_str" "+%Y-%m-%d %H:%M:%S")
@@ -463,9 +476,22 @@ while true; do
                 for user in $users_list; do
                     db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
                     if [[ -n "$db_entry" ]]; then
-                        exp_info=$(echo "$db_entry" | cut -d':' -f3)
                         exp_epoch=$(echo "$db_entry" | cut -d':' -f2)
-                        max_dev=$(echo "$db_entry" | cut -d':' -f4)
+                    
+                        # Obtener el último campo (dispositivos)
+                        max_dev=$(echo "$db_entry" | awk -F: '{print $NF}')
+                    
+                        # Si la línea no tiene campo de dispositivos, usar 1
+                        if [[ "$db_entry" != *:*:*:* ]]; then
+                            max_dev=1
+                        fi
+                    
+                        # Reconstruir fecha completa
+                        if [[ "$db_entry" == *:*:*:* ]]; then
+                            exp_info=$(echo "$db_entry" | sed -E 's/^[^:]+:[0-9]+:(.*):[0-9]+$/\1/')
+                        else
+                            exp_info=$(echo "$db_entry" | cut -d':' -f3-)
+                        fi
                     else
                         exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
                         if [[ "$exp_info" != "never" ]]; then
