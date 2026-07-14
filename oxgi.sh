@@ -49,7 +49,7 @@ echo
 echo -e "${CYAN}${NC}"
 echo -e "${CYAN}│${NC} ${RED}[00]${NC} Exit                                         ${CYAN}${NC}"
 echo -e "${CYAN}${NC}"
-═══════════════════════════════════════════════════════════════
+echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
 echo
 read -p "Seleccione una opción: " opt
 
