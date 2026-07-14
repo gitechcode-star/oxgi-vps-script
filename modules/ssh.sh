@@ -143,7 +143,7 @@ while true; do
     echo
     echo -e "${RED}[0]${NC} Regresar"
     echo
-    echo -e "${BLUE}══════════════════════════════════════════════════════════════════════════════${NC}"
+    echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
     echo
 
     read -p "Seleccione una opción: " opt
