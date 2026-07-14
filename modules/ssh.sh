@@ -621,48 +621,43 @@ while true; do
                 # Guardar la posición del cursor para actualizar solo las filas sin parpadeo
                 echo -ne "\e[s"
                 
+                declare -A USER_ROW
+
+                row=0
+                for user in $users_list; do
+                    USER_ROW["$user"]=$row
+
+                    printf " %-9s %-22s %-22s %-24s %-25s\n" \
+                        "$user" \
+                        "00:00:00:00:00" \
+                        "-" \
+                        "-" \
+                        "-"
+
+                    ((row++))
+                done
+
+                echo "$BOX_BOT"
+                echo
+                echo "Presione cualquier tecla para continuar..."
+
+                TABLE_START_ROW=$(($(tput lines) - ${#USER_ROW[@]} - 3))
+
                 while true; do
-                    clear
-                    show_header
 
-                    echo "$BOX_TOP"
-                    echo " Lista de Usuarios"
-                    echo "$BOX_BOT"
-                    echo
-
-                    echo "$BOX_TOP"
-                    printf " %-10s %-22s %-10s %-10s %-10s\n" \
-                        "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
-                    echo "$BOX_LINE"
+                    row=0
 
                     for user in $users_list; do
-                        exp_info=""
+
                         db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
 
                         if [[ -n "$db_entry" ]]; then
                             exp_epoch=$(echo "$db_entry" | cut -d':' -f2)
-                            exp_datetime=$(echo "$db_entry" | cut -d':' -f3-)
 
                             max_dev=$(echo "$db_entry" | awk -F: '{print $NF}')
-
-                            if [[ "$db_entry" != *:*:*:* ]]; then
-                                max_dev=1
-                            fi
+                            [[ -z "$max_dev" ]] && max_dev=1
                         else
-                            exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
-
-                            if [[ "$exp_info" != "never" ]]; then
-                                exp_epoch=$(date -d "$exp_info" +%s 2>/dev/null)
-                                exp_datetime="$exp_info"
-                            else
-                                exp_epoch=9999999999
-                                exp_datetime="Nunca"
-                            fi
-
-                            max_dev=1
-                        fi
-
-                        if [[ -z "$max_dev" ]] || [[ "$max_dev" -le 0 ]]; then
+                            exp_epoch=9999999999
                             max_dev=1
                         fi
 
@@ -670,17 +665,10 @@ while true; do
 
                         now_epoch=$(date +%s)
 
-                        if [[ "$exp_datetime" == "Nunca" ]]; then
-                            status="${GREEN}Activo (Sin exp.)${NC}"
-                            time_left="Nunca"
-
-                        elif [[ $exp_epoch -le $now_epoch ]]; then
+                        if [[ $exp_epoch -le $now_epoch ]]; then
                             status="${RED}Expirado${NC}"
                             time_left="${RED}00:00:00:00:00${NC}"
-
                         else
-                            status="${GREEN}Activo${NC}"
-
                             diff=$((exp_epoch - now_epoch))
 
                             months=$((diff / 2592000))
@@ -695,6 +683,8 @@ while true; do
                             minutes=$((remaining / 60))
                             seconds=$((remaining % 60))
 
+                            status="${GREEN}Activo${NC}"
+
                             time_left=$(printf "%02d:%02d:%02d:%02d:%02d" \
                                 $months $days $hours $minutes $seconds)
                         fi
@@ -705,23 +695,28 @@ while true; do
                             connection="${GRAY}Offline${NC}"
                         fi
 
-                        printf " %-9s %-22b %-22b %-24b %-25s\n" \
-                            "$user" \
-                            "$time_left" \
-                            "$status" \
-                            "$connection" \
-                            "${current_dev}/${max_dev}"
+                        tput cup $((TABLE_START_ROW + row)) 11
+                        printf "%-22b" "$time_left"
+
+                        tput cup $((TABLE_START_ROW + row)) 34
+                        printf "%-22b" "$status"
+
+                        tput cup $((TABLE_START_ROW + row)) 56
+                        printf "%-24b" "$connection"
+
+                        tput cup $((TABLE_START_ROW + row)) 80
+                        printf "%-25s" "${current_dev}/${max_dev}"
+
+                        ((row++))
                     done
 
-                    echo "$BOX_BOT"
-                    echo
-                    echo "Presione cualquier tecla para continuar..."
-
                     read -s -t 1 -n 1 key
+
                     if [[ $? -eq 0 ]]; then
                         while read -s -t 0.1 -n 1; do :; done
                         break
                     fi
+
                 done
             fi
             ;;
