@@ -17,31 +17,51 @@ touch "$DB_FILE"
 # Crear script de shell personalizado para limitar conexiones
 SHELL_SCRIPT="/usr/local/oxgi/bin/oxgi-ssh-shell"
 mkdir -p /usr/local/oxgi/bin
-if [ ! -f "$SHELL_SCRIPT" ]; then
-    cat << 'EOF' > "$SHELL_SCRIPT"
+
+cat << 'EOF' > "$SHELL_SCRIPT"
 #!/bin/bash
 USER_NAME=$(whoami)
-# Leer límite desde la base de datos (campo 4). Si no existe, default 1.
-MAX=$(grep "^$USER_NAME:" /etc/oxgi/ssh_users.db 2>/dev/null | cut -d: -f4)
-if [ -z "$MAX" ]; then MAX=1; fi
+DB_FILE="/etc/oxgi/ssh_users.db"
 
-# Contar sesiones sshd activas para este usuario
-CURRENT=$(ps -u $USER_NAME -o pid,cmd 2>/dev/null | grep "sshd: $USER_NAME" | grep -v grep | wc -l)
+# Leer límite desde la base de datos (campo 4)
+MAX=$(grep "^${USER_NAME}:" "$DB_FILE" 2>/dev/null | head -1 | cut -d':' -f4)
 
-if [ "$CURRENT" -gt "$MAX" ]; then
-    echo -e "\e[31mLimite de $MAX dispositivos alcanzado. Conexion rechazada.\e[0m"
-    sleep 3
+# Si no existe en la DB o está vacío, default a 1
+if [[ -z "$MAX" ]] || [[ "$MAX" -le 0 ]]; then
+    MAX=1
+fi
+
+# Contar conexiones SSH activas para este usuario
+CURRENT=$(who | grep "^${USER_NAME} " | wc -l)
+
+# Si who no muestra nada, intentar con ps
+if [[ "$CURRENT" -eq 0 ]]; then
+    CURRENT=$(ps -u "$USER_NAME" sshd -o pid= 2>/dev/null | wc -l)
+fi
+
+if [[ "$CURRENT" -ge "$MAX" ]]; then
+    echo ""
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║                    CONEXIÓN RECHAZADA                        ║"
+    echo "╠══════════════════════════════════════════════════════════════╣"
+    echo "║  Límite de $MAX dispositivo(s) alcanzado.                     ║"
+    echo "║  Conexiones activas: $CURRENT                                 "
+    echo "║  Desconecte un dispositivo antes de intentar nuevamente.     ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo ""
+    sleep 5
     exit 1
 fi
 
 # Mantener conexión viva para túneles/proxy
-while true; do sleep 3600; done
+exec /bin/bash --login
 EOF
-    chmod +x "$SHELL_SCRIPT"
-    # Agregar a shells permitidos si no está
-    if ! grep -q "$SHELL_SCRIPT" /etc/shells; then
-        echo "$SHELL_SCRIPT" >> /etc/shells
-    fi
+
+chmod +x "$SHELL_SCRIPT"
+
+# Agregar a shells permitidos si no está
+if ! grep -q "$SHELL_SCRIPT" /etc/shells 2>/dev/null; then
+    echo "$SHELL_SCRIPT" >> /etc/shells
 fi
 
 # Función auxiliar para validar nombre de usuario
@@ -57,7 +77,7 @@ validar_usuario() {
     return 0
 }
 
-# Función auxiliar para validar números enteros positivos
+# Función auxiliar para validar números enteros positivos (sin límite máximo)
 validar_numero() {
     if [[ ! "$1" =~ ^[0-9]+$ ]] || [[ "$1" -le 0 ]]; then
         echo -e "${RED}Error: Debe ingresar un número entero válido mayor a 0.${NC}"
@@ -187,7 +207,13 @@ while true; do
             echo "$BOX_TOP"
             read -p "├─ Número máximo de dispositivos: " max_devices
             echo "$BOX_BOT"
-            validar_numero "$max_devices" || { read -p "ENTER para continuar..."; continue; }
+            
+            # Validar solo que sea un número entero positivo (sin límite máximo)
+            if [[ ! "$max_devices" =~ ^[0-9]+$ ]] || [[ "$max_devices" -le 0 ]]; then
+                echo -e "${RED}Error: El número de dispositivos debe ser un número entero mayor a 0.${NC}"
+                read -p "ENTER para continuar..."
+                continue
+            fi
 
             # Calcular fechas de expiración
             exp_datetime=$(date -d "+$time_qty $unit_str" "+%Y-%m-%d %H:%M:%S")
@@ -195,12 +221,24 @@ while true; do
             exp_epoch=$(date -d "+$time_qty $unit_str" +%s)
 
             # Crear usuario con el shell personalizado para limitar conexiones
-            useradd -M -s "$SHELL_SCRIPT" -e "$exp_date" "$username"
+            useradd -M -s "$SHELL_SCRIPT" -e "$exp_date" "$username" 2>/dev/null
+            if [[ $? -ne 0 ]]; then
+                echo -e "${RED}Error al crear el usuario. Verifique que no exista.${NC}"
+                read -p "ENTER para continuar..."
+                continue
+            fi
+            
             echo "$username:$password" | chpasswd
 
-            # Guardar en base de datos local (Formato: user:epoch:datetime:max_devices)
-            sed -i "/^$username:/d" "$DB_FILE" 2>/dev/null
-            echo "$username:$exp_epoch:$exp_datetime:$max_devices" >> "$DB_FILE"
+            # Eliminar entrada anterior si existe y agregar nueva
+            if [[ -f "$DB_FILE" ]]; then
+                temp_file=$(mktemp)
+                grep -v "^${username}:" "$DB_FILE" > "$temp_file" 2>/dev/null || true
+                mv "$temp_file" "$DB_FILE"
+            fi
+            
+            # Agregar a la base de datos con el formato correcto
+            echo "${username}:${exp_epoch}:${exp_datetime}:${max_devices}" >> "$DB_FILE"
 
             # Obtener puertos configurados
             obtener_puertos
@@ -217,7 +255,7 @@ while true; do
             echo "$BOX_LINE"
             echo "├─ SSL: $SSL_PORT"
             echo "├─ DROPBEAR: $DROPBEAR_PORT"
-            echo "├─ UDP: $UDP_PORT"
+            echo "─ UDP: $UDP_PORT"
             echo "├─ OpenSSH: $OPENSSH_PORT"
             echo "├─ WebSocket: $WEBSOCKET_PORT"
             echo "├─ V2Ray: $V2RAY_PORT"
@@ -254,7 +292,12 @@ while true; do
             
             if [[ "$confirm" =~ ^[Ss]$ ]]; then
                 userdel "$username" 2>/dev/null
-                sed -i "/^$username:/d" "$DB_FILE" 2>/dev/null
+                # Eliminar de la base de datos
+                if [[ -f "$DB_FILE" ]]; then
+                    temp_file=$(mktemp)
+                    grep -v "^${username}:" "$DB_FILE" > "$temp_file" 2>/dev/null || true
+                    mv "$temp_file" "$DB_FILE"
+                fi
                 echo
                 echo -e "${GREEN}✅ Usuario '$username' eliminado correctamente.${NC}"
             else
@@ -314,12 +357,12 @@ while true; do
             validar_numero "$time_qty" || { read -p "ENTER para continuar..."; continue; }
 
             # Obtener fecha actual de expiración y límite de dispositivos
-            db_entry=$(grep "^$username:" "$DB_FILE" 2>/dev/null)
-            max_dev=$(echo "$db_entry" | cut -d: -f4)
-            if [ -z "$max_dev" ]; then max_dev=1; fi
+            db_entry=$(grep "^${username}:" "$DB_FILE" 2>/dev/null | head -1)
+            max_dev=$(echo "$db_entry" | cut -d':' -f4)
+            if [ -z "$max_dev" ] || [ "$max_dev" -le 0 ]; then max_dev=1; fi
 
             if [[ -n "$db_entry" ]]; then
-                current_date_str=$(echo "$db_entry" | cut -d: -f3)
+                current_date_str=$(echo "$db_entry" | cut -d':' -f3)
                 new_exp_datetime=$(date -d "$current_date_str + $time_qty $unit_str" "+%Y-%m-%d %H:%M:%S" 2>/dev/null)
             else
                 new_exp_datetime=$(date -d "+$time_qty $unit_str" "+%Y-%m-%d %H:%M:%S")
@@ -328,11 +371,15 @@ while true; do
             new_exp_date=$(echo "$new_exp_datetime" | cut -d' ' -f1)
             new_exp_epoch=$(date -d "$new_exp_datetime" +%s)
 
-            usermod -e "$new_exp_date" "$username"
+            usermod -e "$new_exp_date" "$username" 2>/dev/null
             
             # Actualizar DB manteniendo el límite de dispositivos
-            sed -i "/^$username:/d" "$DB_FILE" 2>/dev/null
-            echo "$username:$new_exp_epoch:$new_exp_datetime:$max_dev" >> "$DB_FILE"
+            if [[ -f "$DB_FILE" ]]; then
+                temp_file=$(mktemp)
+                grep -v "^${username}:" "$DB_FILE" > "$temp_file" 2>/dev/null || true
+                echo "${username}:${new_exp_epoch}:${new_exp_datetime}:${max_dev}" >> "$temp_file"
+                mv "$temp_file" "$DB_FILE"
+            fi
 
             echo
             echo -e "${GREEN}✅ Usuario '$username' renovado exitosamente.${NC}"
@@ -414,11 +461,11 @@ while true; do
                 printf " %-12s %-24s %-18s %-14s %s\n" "Usuario" "Expiración Precisa" "Estado" "Conexión" "dispositivos"
                 echo "$BOX_LINE"
                 for user in $users_list; do
-                    db_entry=$(grep "^$user:" "$DB_FILE" 2>/dev/null)
+                    db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
                     if [[ -n "$db_entry" ]]; then
-                        exp_info=$(echo "$db_entry" | cut -d: -f3)
-                        exp_epoch=$(echo "$db_entry" | cut -d: -f2)
-                        max_dev=$(echo "$db_entry" | cut -d: -f4)
+                        exp_info=$(echo "$db_entry" | cut -d':' -f3)
+                        exp_epoch=$(echo "$db_entry" | cut -d':' -f2)
+                        max_dev=$(echo "$db_entry" | cut -d':' -f4)
                     else
                         exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
                         if [[ "$exp_info" != "never" ]]; then
@@ -429,11 +476,13 @@ while true; do
                         max_dev=1
                     fi
                     
-                    # Si el campo max_dev está vacío (por bases de datos antiguas), default a 1
-                    if [[ -z "$max_dev" ]]; then max_dev=1; fi
+                    # Si el campo max_dev está vacío o inválido, default a 1
+                    if [[ -z "$max_dev" ]] || [[ "$max_dev" -le 0 ]]; then 
+                        max_dev=1
+                    fi
 
-                    # Contar dispositivos conectados actualmente
-                    current_dev=$(ps -u "$user" -o pid,cmd 2>/dev/null | grep "sshd: $user" | grep -v grep | wc -l)
+                    # Contar dispositivos conectados actualmente (usando who)
+                    current_dev=$(who | grep "^${user} " | wc -l)
                     
                     now_epoch=$(date +%s)
                     if [[ "$exp_info" == "never" ]]; then
@@ -445,7 +494,7 @@ while true; do
                         status="${GREEN}Activo${NC}"
                     fi
                     
-                    if who | grep -q "^$user "; then
+                    if who | grep -q "^${user} "; then
                         connection="${GREEN}Online${NC}"
                     else
                         connection="${GRAY}Offline${NC}"
@@ -472,7 +521,7 @@ while true; do
             current_epoch=$(date +%s)
             
             if [[ -f "$DB_FILE" ]]; then
-                while IFS=: read -r db_user db_epoch db_datetime db_max; do
+                while IFS=':' read -r db_user db_epoch db_datetime db_max; do
                     if [[ -n "$db_user" ]]; then
                         if [[ "$db_epoch" -lt "$current_epoch" ]]; then
                             if id "$db_user" &>/dev/null; then
@@ -480,21 +529,29 @@ while true; do
                                 echo -e "${RED}🗑️ Usuario '$db_user' eliminado (Expiró: $db_datetime)${NC}"
                                 ((deleted_count++))
                             fi
-                            sed -i "/^$db_user:/d" "$DB_FILE"
                         fi
                     fi
                 done < "$DB_FILE"
+                
+                # Limpiar la base de datos de usuarios expirados
+                temp_file=$(mktemp)
+                while IFS=':' read -r db_user db_epoch db_datetime db_max; do
+                    if [[ "$db_epoch" -ge "$current_epoch" ]]; then
+                        echo "${db_user}:${db_epoch}:${db_datetime}:${db_max}" >> "$temp_file"
+                    fi
+                done < "$DB_FILE"
+                mv "$temp_file" "$DB_FILE"
             fi
 
             users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
             for user in $users_list; do
-                if ! grep -q "^$user:" "$DB_FILE" 2>/dev/null; then
+                if ! grep -q "^${user}:" "$DB_FILE" 2>/dev/null; then
                     exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
                     if [[ "$exp_info" != "never" ]] && [[ -n "$exp_info" ]]; then
                         exp_epoch=$(date -d "$exp_info" +%s 2>/dev/null)
                         if [[ -n "$exp_epoch" ]] && [[ "$exp_epoch" -lt "$current_epoch" ]]; then
                             userdel "$user" 2>/dev/null
-                            echo -e "${RED}🗑️ Usuario '$user' eliminado (Expiró: $exp_info)${NC}"
+                            echo -e "${RED}️ Usuario '$user' eliminado (Expiró: $exp_info)${NC}"
                             ((deleted_count++))
                         fi
                     fi
