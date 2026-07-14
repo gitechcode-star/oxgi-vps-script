@@ -4,10 +4,10 @@
 source /usr/local/oxgi/modules/color.sh
 source /usr/local/oxgi/modules/header.sh
 
-# Definir cajas más simples para mejor compatibilidad con móviles
-BOX_TOP="+--------------------------------------------------------------------------------+"
-BOX_BOT="+--------------------------------------------------------------------------------+"
-BOX_LINE="--------------------------------------------------------------------------------"
+# Definir cajas más anchas para acomodar la nueva columna (80 caracteres)
+BOX_TOP="┌────────────────────────────────────────────────────────────────────────┐"
+BOX_BOT="└────────────────────────────────────────────────────────────────────────┘"
+BOX_LINE="────────────────────────────────────────────────────────────────────────"
 
 # Archivo de base de datos local
 mkdir -p /etc/oxgi
@@ -41,13 +41,13 @@ fi
 
 if [[ "$CURRENT" -ge "$MAX" ]]; then
     echo ""
-    echo "+----------------------------------------------------------+"
-    echo "|                    CONEXIÓN RECHAZADA                    |"
-    echo "+----------------------------------------------------------+"
-    echo "|  Límite de $MAX dispositivo(s) alcanzado.                 |"
-    echo "|  Conexiones activas: $CURRENT                               |"
-    echo "|  Desconecte un dispositivo antes de intentar nuevamente. |"
-    echo "+----------------------------------------------------------+"
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║                    CONEXIÓN RECHAZADA                        ║"
+    echo "╠══════════════════════════════════════════════════════════════╣"
+    echo "║  Límite de $MAX dispositivo(s) alcanzado.                     "
+    echo "║  Conexiones activas: $CURRENT                                 "
+    echo "║  Desconecte un dispositivo antes de intentar nuevamente.     "
+    echo "╚══════════════════════════════════════════════════════════════╝"
     echo ""
     sleep 5
     exit 1
@@ -132,7 +132,7 @@ while true; do
     clear
     show_header
     echo -e "${GREEN}SSH MANAGER${NC}"
-    echo ""
+    echo
     echo -e "${CYAN}[1]${NC} Crear Usuario SSH"
     echo -e "${CYAN}[2]${NC} Eliminar Usuario SSH"
     echo -e "${CYAN}[3]${NC} Renovar Usuario SSH"
@@ -140,11 +140,11 @@ while true; do
     echo -e "${CYAN}[5]${NC} Usuarios Online"
     echo -e "${CYAN}[6]${NC} Lista de Usuarios"
     echo -e "${CYAN}[7]${NC} Eliminar Expirados"
-    echo ""
+    echo
     echo -e "${RED}[0]${NC} Regresar"
-    echo ""
-    echo -e "${BLUE}================================================================================${NC}"
-    echo ""
+    echo
+    echo -e "${BLUE}══════════════════════════════════════════════════════════════════════════════${NC}"
+    echo
 
     read -p "Seleccione una opción: " opt
 
@@ -155,7 +155,7 @@ while true; do
             echo "$BOX_TOP"
             echo " Crear Usuario SSH"
             echo "$BOX_BOT"
-            echo ""
+            echo
             
             read -p "Nombre de usuario: " username
             validar_usuario "$username" || { read -p "ENTER para continuar..."; continue; }
@@ -172,7 +172,7 @@ while true; do
                 echo "Contraseña generada: $password"
             fi
 
-            echo ""
+            echo
             echo "$BOX_TOP"
             echo " Seleccione la unidad de tiempo:"
             echo "$BOX_BOT"
@@ -180,18 +180,18 @@ while true; do
             echo "  [1] Minutos"
             echo "  [2] Horas"
             echo "  [3] Días"
-            echo "  [4] Meses (30 días)"
+            echo "  [4] Meses"
             echo "$BOX_BOT"
             
             echo "$BOX_TOP"
-            read -p "| Opción: " unit_opt
+            read -p "├─ Opción: " unit_opt
             echo "$BOX_BOT"
             
             case $unit_opt in
                 1) unit_str="minutes" ;;
                 2) unit_str="hours" ;;
                 3) unit_str="days" ;;
-                4) unit_str="days"; time_qty=$((time_qty * 30)) ;;
+                4) unit_str="months" ;;
                 *) 
                     echo -e "${RED}Opción inválida.${NC}"
                     read -p "ENTER para continuar..."
@@ -200,12 +200,12 @@ while true; do
             esac
 
             echo "$BOX_TOP"
-            read -p "| Cantidad: " time_qty
+            read -p "├─ Cantidad: " time_qty
             echo "$BOX_BOT"
             validar_numero "$time_qty" || { read -p "ENTER para continuar..."; continue; }
 
             echo "$BOX_TOP"
-            read -p "| Número máximo de dispositivos: " max_devices
+            read -p "├─ Número máximo de dispositivos: " max_devices
             echo "$BOX_BOT"
             
             # Validar solo que sea un número entero positivo (sin límite máximo)
@@ -243,29 +243,29 @@ while true; do
             # Obtener puertos configurados
             obtener_puertos
 
-            echo ""
-            echo -e "${GREEN}Usuario creado exitosamente.${NC}"
-            echo ""
+            echo
+            echo -e "${GREEN}✅ Usuario creado exitosamente.${NC}"
+            echo
             echo "$BOX_TOP"
             echo ""
-            echo "| Dominio: $DOMAIN"
-            echo "| Usuario: $username"
-            echo "| Contraseña: $password"
-            echo "| Dispositivos máx: $max_devices"
+            echo "├─ Dominio: $DOMAIN"
+            echo "├─ Usuario: $username"
+            echo "├─ Contraseña: $password"
+            echo "├─ Dispositivos máx: $max_devices"
             echo "$BOX_LINE"
-            echo "| SSL: $SSL_PORT"
-            echo "| DROPBEAR: $DROPBEAR_PORT"
-            echo "| UDP: $UDP_PORT"
-            echo "| OpenSSH: $OPENSSH_PORT"
-            echo "| WebSocket: $WEBSOCKET_PORT"
-            echo "| V2Ray: $V2RAY_PORT"
+            echo "├─ SSL: $SSL_PORT"
+            echo "├─ DROPBEAR: $DROPBEAR_PORT"
+            echo "─ UDP: $UDP_PORT"
+            echo "├─ OpenSSH: $OPENSSH_PORT"
+            echo "├─ WebSocket: $WEBSOCKET_PORT"
+            echo "├─ V2Ray: $V2RAY_PORT"
             echo ""
             echo "$BOX_BOT"
-            echo ""
+            echo
             echo "$BOX_TOP"
             echo " Expira el: $exp_datetime"
             echo "$BOX_BOT"
-            echo ""
+            echo
             read -p "ENTER para continuar..."
             ;;
 
@@ -275,7 +275,7 @@ while true; do
             echo "$BOX_TOP"
             echo " Eliminar Usuario SSH"
             echo "$BOX_BOT"
-            echo ""
+            echo
             
             users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
             
@@ -286,7 +286,7 @@ while true; do
             fi
 
             echo "$BOX_TOP"
-            printf "| %-4s | %-15s | %-24s | %-26s |\n" "N°" "Usuario" "Expiración" "Estado"
+            printf " %-5s %-15s %-24s %-26s\n" "N°" "Usuario" "Expiración" "Estado"
             echo "$BOX_LINE"
             
             i=1
@@ -320,11 +320,11 @@ while true; do
                     status="${GREEN}Activo${NC}"
                 fi
                 
-                printf "| %-4s | %-15s | %-24s | %-26b |\n" "$i" "$user" "$exp_info" "$status"
+                printf " %-5s %-15s %-24s %-26b\n" "$i" "$user" "$exp_info" "$status"
                 ((i++))
             done
             echo "$BOX_BOT"
-            echo ""
+            echo
             
             read -p "Ingrese el/los número(s) de usuario a eliminar (ej: 1 o 1,2,3): " selection
             
@@ -347,7 +347,7 @@ while true; do
             fi
             
             echo "$BOX_TOP"
-            read -p "| ¿Está seguro de eliminar los usuarios seleccionados? (s/N): " confirm
+            read -p "├─ ¿Está seguro de eliminar los usuarios seleccionados? (s/N): " confirm
             echo "$BOX_BOT"
             
             if [[ "$confirm" =~ ^[Ss]$ ]]; then
@@ -362,12 +362,12 @@ while true; do
                         grep -v "^${username}:" "$DB_FILE" > "$temp_file" 2>/dev/null || true
                         mv "$temp_file" "$DB_FILE"
                     fi
-                    echo -e "${GREEN}Usuario '$username' eliminado correctamente.${NC}"
+                    echo -e "${GREEN}✅ Usuario '$username' eliminado correctamente.${NC}"
                 done
             else
                 echo -e "${YELLOW}Operación cancelada.${NC}"
             fi
-            echo ""
+            echo
             read -p "ENTER para continuar..."
             ;;
 
@@ -377,7 +377,7 @@ while true; do
             echo "$BOX_TOP"
             echo " Renovar Usuario SSH"
             echo "$BOX_BOT"
-            echo ""
+            echo
             
             users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
             
@@ -388,7 +388,7 @@ while true; do
             fi
 
             echo "$BOX_TOP"
-            printf "| %-4s | %-15s | %-24s | %-26s |\n" "N°" "Usuario" "Expiración" "Estado"
+            printf " %-5s %-15s %-24s %-26s\n" "N°" "Usuario" "Expiración" "Estado"
             echo "$BOX_LINE"
             
             i=1
@@ -422,11 +422,11 @@ while true; do
                     status="${GREEN}Activo${NC}"
                 fi
                 
-                printf "| %-4s | %-15s | %-24s | %-26b |\n" "$i" "$user" "$exp_info" "$status"
+                printf " %-5s %-15s %-24s %-26b\n" "$i" "$user" "$exp_info" "$status"
                 ((i++))
             done
             echo "$BOX_BOT"
-            echo ""
+            echo
             
             read -p "Ingrese el/los número(s) de usuario a renovar (ej: 1 o 1,2,3): " selection
             
@@ -448,19 +448,19 @@ while true; do
                 continue
             fi
 
-            echo ""
+            echo
             echo "$BOX_TOP"
-            echo " Seleccione la unidad de tiempo:"
+            echo " Seleccione la unidad de tiempo a agregar:"
             echo "$BOX_BOT"
             echo "$BOX_TOP"
             echo "  [1] Minutos"
             echo "  [2] Horas"
             echo "  [3] Días"
-            echo "  [4] Meses (30 días)"
+            echo "  [4] Meses"
             echo "$BOX_BOT"
             
             echo "$BOX_TOP"
-            read -p "| Opción: " unit_opt
+            read -p "├─ Opción: " unit_opt
             echo "$BOX_BOT"
 
             case $unit_opt in
@@ -476,12 +476,12 @@ while true; do
             esac
 
             echo "$BOX_TOP"
-            read -p "| Cantidad: " time_qty
+            read -p "├─ Cantidad a agregar: " time_qty
             echo "$BOX_BOT"
             validar_numero "$time_qty" || { read -p "ENTER para continuar..."; continue; }
 
             echo "$BOX_TOP"
-            read -p "| Número máximo de dispositivos: " max_devices_input
+            read -p "├─ Número máximo de dispositivos: " max_devices_input
             echo "$BOX_BOT"
             
             # Validar solo que sea un número entero positivo (sin límite máximo)
@@ -496,32 +496,37 @@ while true; do
                 idx=$(echo "$idx" | tr -d ' ')
                 username="${user_array[$((idx-1))]}"
                 
-                # Calcular nueva fecha de expiración desde el momento actual (reemplaza el tiempo anterior)
-                now_epoch=$(date +%s)
+                # Obtener fecha actual de expiración
+                db_entry=$(grep "^${username}:" "$DB_FILE" 2>/dev/null | head -1)
                 
-                case $unit_str in
-                    minutes) 
-                        add_seconds=$((time_qty * 60))
-                        new_exp_epoch=$((now_epoch + add_seconds))
+               if [[ -n "$db_entry" ]]; then
+                    if [[ "$db_entry" == *:*:*:* ]]; then
+                        current_date_str=$(echo "$db_entry" | awk -F: '{print $3":"$4":"$5}')
+                    else
+                        current_date_str=$(echo "$db_entry" | cut -d':' -f3-)
+                    fi
+
+                    current_epoch=$(date -d "$current_date_str" +%s 2>/dev/null)
+
+                    case $unit_str in
+                        minutes) add_seconds=$((time_qty * 60)) ;;
+                        hours)   add_seconds=$((time_qty * 3600)) ;;
+                        days)    add_seconds=$((time_qty * 86400)) ;;
+                        months)
+                            new_exp_datetime=$(date -d "$current_date_str +$time_qty month" "+%Y-%m-%d %H:%M:%S")
+                            ;;
+                    esac
+
+                    if [[ "$unit_str" != "months" ]]; then
+                        new_exp_epoch=$((current_epoch + add_seconds))
                         new_exp_datetime=$(date -d "@$new_exp_epoch" "+%Y-%m-%d %H:%M:%S")
-                        ;;
-                    hours)   
-                        add_seconds=$((time_qty * 3600))
-                        new_exp_epoch=$((now_epoch + add_seconds))
-                        new_exp_datetime=$(date -d "@$new_exp_epoch" "+%Y-%m-%d %H:%M:%S")
-                        ;;
-                    days)    
-                        add_seconds=$((time_qty * 86400))
-                        new_exp_epoch=$((now_epoch + add_seconds))
-                        new_exp_datetime=$(date -d "@$new_exp_epoch" "+%Y-%m-%d %H:%M:%S")
-                        ;;
-                    months)
-                        new_exp_datetime=$(date -d "+$time_qty months" "+%Y-%m-%d %H:%M:%S")
-                        new_exp_epoch=$(date -d "$new_exp_datetime" +%s)
-                        ;;
-                esac
+                    fi
+                else
+                    new_exp_datetime=$(date -d "+$time_qty $unit_str" "+%Y-%m-%d %H:%M:%S")
+                fi
 
                 new_exp_date=$(echo "$new_exp_datetime" | cut -d' ' -f1)
+                new_exp_epoch=$(date -d "$new_exp_datetime" +%s)
 
                 usermod -e "$new_exp_date" "$username" 2>/dev/null
                 chage -E "$new_exp_date" "$username" 2>/dev/null
@@ -534,15 +539,14 @@ while true; do
                     mv "$temp_file" "$DB_FILE"
                 fi
 
-                echo -e "${GREEN}Usuario '$username' renovado exitosamente.${NC}"
-                echo "   Nueva expiración: $new_exp_datetime"
+                echo -e "${GREEN}✅ Usuario '$username' renovado exitosamente.${NC}"
             done
 
-            echo ""
+            echo
             echo "$BOX_TOP"
             echo " Renovación completada para los usuarios seleccionados."
             echo "$BOX_BOT"
-            echo ""
+            echo
             read -p "ENTER para continuar..."
             ;;
 
@@ -552,7 +556,7 @@ while true; do
             echo "$BOX_TOP"
             echo " Cambiar Contraseña"
             echo "$BOX_BOT"
-            echo ""
+            echo
             
             read -p "Nombre de usuario: " username
             validar_usuario "$username" || { read -p "ENTER para continuar..."; continue; }
@@ -570,9 +574,9 @@ while true; do
             fi
 
             echo "$username:$new_password" | chpasswd
-            echo ""
-            echo -e "${GREEN}Contraseña de '$username' actualizada correctamente.${NC}"
-            echo ""
+            echo
+            echo -e "${GREEN}✅ Contraseña de '$username' actualizada correctamente.${NC}"
+            echo
             read -p "ENTER para continuar..."
             ;;
 
@@ -582,7 +586,7 @@ while true; do
             echo "$BOX_TOP"
             echo " Usuarios Online"
             echo "$BOX_BOT"
-            echo ""
+            echo
             
             online_users=$(who | awk '{print $1}' | sort -u)
             
@@ -590,12 +594,12 @@ while true; do
                 echo -e "${RED}No hay usuarios conectados en este momento.${NC}"
             else
                 echo "$BOX_TOP"
-                printf "| %-11s | %-9s | %-17s | %-10s | %-8s |\n" "Usuario" "Terminal" "IP/Puerto" "Fecha" "Hora"
+                printf " %-11s %-9s %-17s %s %s\n" "Usuario" "Terminal" "IP/Puerto" "Fecha" "Hora"
                 echo "$BOX_LINE"
-                who | awk '{printf "| %-11s | %-9s | %-17s | %-10s | %-8s |\n", $1, $2, $5, $3, $4}'
+                who | awk '{printf " %-11s %-9s %-17s %s %s\n", $1, $2, $5, $3, $4}'
                 echo "$BOX_BOT"
             fi
-            echo ""
+            echo
             read -p "ENTER para continuar..."
             ;;
 
@@ -605,120 +609,77 @@ while true; do
             echo "$BOX_TOP"
             echo " Lista de Usuarios"
             echo "$BOX_BOT"
-            echo ""
+            echo
             
             users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
             
             if [[ -z "$users_list" ]]; then
                 echo -e "${RED}No hay usuarios registrados en el sistema.${NC}"
-                echo ""
-                read -p "ENTER para continuar..."
             else
                 echo "$BOX_TOP"
-                printf "| %-12s | %-20s | %-12s | %-10s | %-12s |\n" "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
+                printf " %-15s %-18s %-10s %-10s %-10s\n" \ "Usuario" "Expiración" "Estado" "Conexión" "Dispositivos"
                 echo "$BOX_LINE"
-                
-                while true; do
-                    for user in $users_list; do
-                        exp_info=""
-                        db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
-                        if [[ -n "$db_entry" ]]; then
-                            exp_epoch=$(echo "$db_entry" | cut -d':' -f2)
-                            exp_datetime=$(echo "$db_entry" | cut -d':' -f3-)
-                        
-                            # Obtener el último campo (dispositivos)
-                            max_dev=$(echo "$db_entry" | awk -F: '{print $NF}')
-                        
-                            # Si la línea no tiene campo de dispositivos, usar 1
-                            if [[ "$db_entry" != *:*:*:* ]]; then
-                                max_dev=1
-                            fi
-                        else
-                            exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
-                            if [[ "$exp_info" != "never" ]]; then
-                                exp_epoch=$(date -d "$exp_info" +%s 2>/dev/null)
-                                exp_datetime="$exp_info"
-                            else
-                                exp_epoch=9999999999
-                                exp_datetime="Nunca"
-                            fi
+                for user in $users_list; do
+                    db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
+                    if [[ -n "$db_entry" ]]; then
+                        exp_epoch=$(echo "$db_entry" | cut -d':' -f2)
+                    
+                        # Obtener el último campo (dispositivos)
+                        max_dev=$(echo "$db_entry" | awk -F: '{print $NF}')
+                    
+                        # Si la línea no tiene campo de dispositivos, usar 1
+                        if [[ "$db_entry" != *:*:*:* ]]; then
                             max_dev=1
                         fi
-                        
-                        # Si el campo max_dev está vacío o inválido, default a 1
-                        if [[ -z "$max_dev" ]] || [[ "$max_dev" -le 0 ]]; then 
-                            max_dev=1
-                        fi
-
-                        # Contar dispositivos conectados actualmente (usando who)
-                        current_dev=$(who | grep "^${user} " | wc -l)
-                        
-                        now_epoch=$(date +%s)
-                        
-                        if [[ "$exp_datetime" == "Nunca" ]]; then
-                            status="${GREEN}Activo (Sin exp.)${NC}"
-                            time_left="Nunca"
-                        elif [[ $exp_epoch -le $now_epoch ]]; then
-                            status="${RED}Expirado${NC}"
-                            # CORRECCIÓN: Cuando está expirado, mostrar 00:00:00:00:00 fijo sin seguir contando
-                            time_left="${RED}00:00:00:00:00${NC}"
-                        else
-                            status="${GREEN}Activo${NC}"
-                            diff=$((exp_epoch - now_epoch))
-                            
-                            # Calcular tiempo preciso: Meses:Días:Horas:Minutos:Segundos
-                            # 1 mes = 30 días = 2592000 segundos
-                            months=$((diff / 2592000))
-                            remaining=$((diff % 2592000))
-                            
-                            days=$((remaining / 86400))
-                            remaining=$((remaining % 86400))
-                            
-                            hours=$((remaining / 3600))
-                            remaining=$((remaining % 3600))
-                            
-                            minutes=$((remaining / 60))
-                            seconds=$((remaining % 60))
-                            
-                            time_left=$(printf "%02d:%02d:%02d:%02d:%02d" $months $days $hours $minutes $seconds)
-                        fi
-                        
-                        if who | grep -q "^${user} "; then
-                            connection="${GREEN}Online${NC}"
-                        else
-                            connection="${GRAY}Offline${NC}"
-                        fi
-                        
-                        # Imprimir fila con formato ajustado
-                        printf "| %-12s | %-20b | %-12b | %-10b | %-12s |\n" \
-                        "$user" "$time_left" "$status" "$connection" "${current_dev}/${max_dev}"
-                    done
                     
-                    echo "$BOX_BOT"
-                    echo ""
-                    echo -ne "Presione cualquier tecla para continuar..."
-                    
-                    # Esperar 1 segundo por una tecla
-                    read -s -t 1 -n 1 key
-                    if [[ $? -eq 0 ]]; then
-                        # Limpiar buffer de entrada de caracteres residuales
-                        while read -s -t 0.1 -n 1; do :; done
-                        echo ""
-                        break
+                        # Reconstruir fecha completa
+                        if [[ "$db_entry" == *:*:*:* ]]; then
+                            exp_info=$(echo "$db_entry" | awk -F: '{print $3":"$4":"$5}')
+                        else
+                            exp_info=$(echo "$db_entry" | cut -d':' -f3-)
+                        fi
+                    else
+                        exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
+                        if [[ "$exp_info" != "never" ]]; then
+                            exp_epoch=$(date -d "$exp_info" +%s 2>/dev/null)
+                        else
+                            exp_epoch=9999999999
+                        fi
+                        max_dev=1
                     fi
                     
-                    # Limpiar y redibujar
-                    clear
-                    show_header
-                    echo "$BOX_TOP"
-                    echo " Lista de Usuarios"
-                    echo "$BOX_BOT"
-                    echo ""
-                    echo "$BOX_TOP"
-                    printf "| %-12s | %-20s | %-12s | %-10s | %-12s |\n" "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
-                    echo "$BOX_LINE"
+                    # Si el campo max_dev está vacío o inválido, default a 1
+                    if [[ -z "$max_dev" ]] || [[ "$max_dev" -le 0 ]]; then 
+                        max_dev=1
+                    fi
+
+                    # Contar dispositivos conectados actualmente (usando who)
+                    current_dev=$(who | grep "^${user} " | wc -l)
+                    
+                    now_epoch=$(date +%s)
+                    if [[ "$exp_info" == "never" ]]; then
+                        status="${GREEN}Activo (Sin exp.)${NC}"
+                        exp_info="Nunca"
+                    elif [[ $exp_epoch -lt $now_epoch ]]; then
+                        status="${RED}Expirado${NC}"
+                    else
+                        status="${GREEN}Activo${NC}"
+                    fi
+                    
+                    if who | grep -q "^${user} "; then
+                        connection="${GREEN}Online${NC}"
+                    else
+                        connection="${GRAY}Offline${NC}"
+                    fi
+                    
+                    # Imprimir fila con formato ajustado
+                    printf " %-9s %-22s %-22b %-24b %-25s\n" \
+                    "$user" "$exp_info" "$status" "$connection" "${current_dev}/${max_dev}"
                 done
+                echo "$BOX_BOT"
             fi
+            echo
+            read -p "ENTER para continuar..."
             ;;
 
         7)
@@ -727,7 +688,7 @@ while true; do
             echo "$BOX_TOP"
             echo " Eliminar Usuarios Expirados"
             echo "$BOX_BOT"
-            echo ""
+            echo
             
             deleted_count=0
             current_epoch=$(date +%s)
@@ -738,7 +699,7 @@ while true; do
                         if [[ "$db_epoch" -lt "$current_epoch" ]]; then
                             if id "$db_user" &>/dev/null; then
                                 userdel "$db_user" 2>/dev/null
-                                echo -e "${RED}Usuario '$db_user' eliminado (Expiró: $db_datetime)${NC}"
+                                echo -e "${RED}🗑️ Usuario '$db_user' eliminado (Expiró: $db_datetime)${NC}"
                                 ((deleted_count++))
                             fi
                         fi
@@ -763,14 +724,14 @@ while true; do
                         exp_epoch=$(date -d "$exp_info" +%s 2>/dev/null)
                         if [[ -n "$exp_epoch" ]] && [[ "$exp_epoch" -lt "$current_epoch" ]]; then
                             userdel "$user" 2>/dev/null
-                            echo -e "${RED}Usuario '$user' eliminado (Expiró: $exp_info)${NC}"
+                            echo -e "${RED}️ Usuario '$user' eliminado (Expiró: $exp_info)${NC}"
                             ((deleted_count++))
                         fi
                     fi
                 fi
             done
             
-            echo ""
+            echo
             if [[ $deleted_count -eq 0 ]]; then
                 echo "$BOX_TOP"
                 echo " No se encontraron usuarios expirados."
@@ -780,7 +741,7 @@ while true; do
                 echo " Se eliminaron $deleted_count usuario(s) expirado(s)."
                 echo "$BOX_BOT"
             fi
-            echo ""
+            echo
             read -p "ENTER para continuar..."
             ;;
 
@@ -789,7 +750,7 @@ while true; do
             ;;
 
         *)
-            echo ""
+            echo
             echo -e "${RED}Opción inválida. Por favor, seleccione una opción del menú.${NC}"
             sleep 1.5
             ;;
