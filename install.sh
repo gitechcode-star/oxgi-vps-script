@@ -16,34 +16,37 @@ WHITE='\033[1;37m'
 NC='\033[0m'
 
 run_step() {
-    local percent="$1"
-    local text="$2"
-    shift 2
+    local text="$1"
+    shift
+
+    echo
+    echo -e "${WHITE}${text}${NC}"
 
     "$@" >/dev/null 2>&1 &
     local pid=$!
 
-    local pos=0
+    local progress=0
 
     while kill -0 "$pid" 2>/dev/null; do
 
-        pos=$((pos + 1))
-        [ $pos -gt 30 ] && pos=0
+        if [ $progress -lt 95 ]; then
+            progress=$((progress + 1))
+        fi
+
+        filled=$((progress * 30 / 100))
+        empty=$((30 - filled))
 
         bar=""
 
-        for ((i=0; i<30; i++)); do
-            if [ $i -eq $pos ]; then
-                bar="${bar}█"
-            else
-                bar="${bar}░"
-            fi
+        for ((i=0; i<filled; i++)); do
+            bar="${bar}█"
         done
 
-        printf "\r${CYAN}[%s] ${GREEN}%3d%%${NC} ${WHITE}%s${NC}" \
-        "$bar" \
-        "$percent" \
-        "$text"
+        for ((i=0; i<empty; i++)); do
+            bar="${bar}░"
+        done
+
+        printf "\r${CYAN}[%s] ${GREEN}%3d%%${NC}" "$bar" "$progress"
 
         sleep 0.05
     done
@@ -52,11 +55,10 @@ run_step() {
     local status=$?
 
     if [ $status -eq 0 ]; then
-        printf "\r${CYAN}[██████████████████████████████] ${GREEN}%3d%% ✓${NC} ${WHITE}%s${NC}\n" \
-        "$percent" \
-        "$text"
+        printf "\r${CYAN}[██████████████████████████████] ${GREEN}100%% ✓${NC}\n"
     else
-        printf "\r${RED}[ERROR]${NC} %s\n" "$text"
+        echo
+        echo -e "${RED}[ERROR] ${text}${NC}"
         exit 1
     fi
 }
@@ -79,11 +81,11 @@ if ! grep -qi "ubuntu" /etc/os-release; then
     exit 1
 fi
 
-run_step 14 "Actualizando repositorios..." apt update -y
+run_step "Actualizando repositorios..." apt update -y
 
-run_step 28 "Actualizando sistema..." apt upgrade -y
+run_step "Actualizando sistema..." apt upgrade -y
 
-run_step 42 "Instalando dependencias..." apt install -y \
+run_step "Instalando dependencias..." apt install -y \
 git \
 curl \
 wget \
@@ -95,14 +97,14 @@ nginx
 
 rm -rf "$INSTALL_DIR"
 
-run_step 56 "Descargando OXGI..." git clone "$REPO_URL" "$INSTALL_DIR"
+run_step "Descargando OXGI..." git clone "$REPO_URL" "$INSTALL_DIR"
 
 if [ ! -d "$INSTALL_DIR" ]; then
     echo -e "${RED}[ERROR] No se pudo descargar OXGI${NC}"
     exit 1
 fi
 
-run_step 70 "Configurando permisos..." chmod -R +x "$INSTALL_DIR"
+run_step "Configurando permisos..." chmod -R +x "$INSTALL_DIR"
 
 mkdir -p /etc/oxgi
 
@@ -150,9 +152,9 @@ cat > /usr/local/bin/oxgi << EOF
 bash $INSTALL_DIR/oxgi.sh
 EOF
 
-run_step 85 "Creando comando global..." chmod +x /usr/local/bin/oxgi
+run_step "Creando comando global..." chmod +x /usr/local/bin/oxgi
 
-run_step 100 "Finalizando instalación..." sleep 2
+run_step "Finalizando instalación..." sleep 2
 
 clear
 
