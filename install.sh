@@ -55,11 +55,16 @@ mkdir -p /usr/local/oxgi/config
 
 echo -e "${GREEN}[5/8] Copiando archivos...${NC}"
 
-cp -r modules/* /usr/local/oxgi/modules/ 2>/dev/null
-cp -r services/* /usr/local/oxgi/services/ 2>/dev/null
-cp -r config/* /usr/local/oxgi/config/ 2>/dev/null
+echo "[+] Descargando OXGI..."
 
-cp oxgi.sh /usr/local/oxgi/oxgi.sh
+rm -rf /usr/local/oxgi
+
+git clone \
+https://github.com/gitechcode-star/oxgi-vps-script.git \
+/usr/local/oxgi
+
+chmod +x /usr/local/oxgi/oxgi.sh
+chmod +x /usr/local/oxgi/modules/*.sh
 
 chmod +x /usr/local/oxgi/oxgi.sh
 chmod +x /usr/local/oxgi/modules/*.sh 2>/dev/null
