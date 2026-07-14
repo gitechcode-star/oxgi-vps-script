@@ -40,7 +40,7 @@ echo
 echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
 printf "${CYAN}│${NC} ${WHITE}[01]${NC} SSH Manager        ${WHITE}[04]${NC} Configuración                ${CYAN}│${NC}\n"
 printf "${CYAN}│${NC} ${WHITE}[02]${NC} V2Ray Manager      ${WHITE}[05]${NC} Actualizar Script            ${CYAN}│${NC}\n"
-printf "${CYAN}│${NC} ${WHITE}[03]${NC} Monitor                                                           ${CYAN}│${NC}\n"
+printf "${CYAN}│${NC} ${WHITE}[03]${NC} Monitor                                                               ${CYAN}│${NC}\n"
 echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
 
 echo
