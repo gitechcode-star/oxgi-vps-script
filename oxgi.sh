@@ -17,9 +17,9 @@ do
 [ -f "$VERSION_FILE" ] && source "$VERSION_FILE"
 
 if [ -f "$AUTOSTART_FILE" ]; then
-    AUTOSTART_STATUS="${GREEN}[✔️]${NC}"
+    AUTOSTART_STATUS="${GREEN}[Online]${NC}"
 else
-    AUTOSTART_STATUS="${RED}[❌]${NC}"
+    AUTOSTART_STATUS="${RED}[Off]${NC}"
 fi
 
 clear
