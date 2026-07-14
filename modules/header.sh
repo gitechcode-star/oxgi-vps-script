@@ -8,15 +8,14 @@ VERSION_FILE="/etc/oxgi/version.conf"
 [ -f "$CONFIG" ] && source "$CONFIG"
 [ -f "$VERSION_FILE" ] && source "$VERSION_FILE"
 
-CYAN="\e[1;36m"
-WHITE="\e[1;37m"
-NC="\e[0m"
+BLUE='\033[1;36m'
+WHITE='\033[1;37m'
+NC='\033[0m'
 
 clear
 
-echo -e "${CYAN}┌────────────────────────────────────────────────────┐${NC}"
-printf "${CYAN}│${NC} %-50s ${CYAN}│${NC}\n" \
-"${WHITE}${APP_NAME} - Versión ${VERSION} - ${AUTHOR}${NC}"
-echo -e "${CYAN}└────────────────────────────────────────────────────┘${NC}"
+echo -e "${BLUE}╔══════════════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║${WHITE}      ${APP_NAME} - Versión ${VERSION} - ${AUTHOR}      ${BLUE}║${NC}"
+echo -e "${BLUE}╚══════════════════════════════════════════════════════╝${NC}"
 echo
 }
