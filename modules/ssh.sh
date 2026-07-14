@@ -614,17 +614,18 @@ while true; do
                 echo
                 read -p "ENTER para continuar..."
             else
+                # Imprimir encabezado una sola vez
                 echo "$BOX_TOP"
                 printf " %-10s %-22s %-10s %-10s %-10s\n" "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
                 echo "$BOX_LINE"
                 
-                # Guardar la posición del cursor para actualizar solo las filas sin parpadeo
-                echo -ne "\e[s"
+                # Guardar número de línea donde empiezan los datos (después del header)
+                data_start_line=$(($(tput lines) - 5))
                 
                 while true; do
-                    # Restaurar cursor y limpiar solo las filas de datos para evitar parpadeo
-                    echo -ne "\e[u\e[J"
-
+                    # Mover cursor al inicio de los datos y limpiar solo esa área
+                    echo -ne "\e[11;1H\e[J"
+                    
                     for user in $users_list; do
                         exp_info=""
                         db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
