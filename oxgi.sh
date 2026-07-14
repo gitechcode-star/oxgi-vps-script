@@ -2,6 +2,7 @@
 
 CONFIG="/etc/oxgi/config.conf"
 VERSION_FILE="/etc/oxgi/version.conf"
+AUTOSTART_FILE="/etc/oxgi/autostart.conf"
 
 [ -f "$CONFIG" ] && source "$CONFIG"
 [ -f "$VERSION_FILE" ] && source "$VERSION_FILE"
@@ -14,6 +15,16 @@ do
 
 [ -f "$CONFIG" ] && source "$CONFIG"
 [ -f "$VERSION_FILE" ] && source "$VERSION_FILE"
+
+if [ -f "$AUTOSTART_FILE" ]; then
+    AUTOSTART="ON"
+    AUTOSTART_COLOR="$BLUE"
+    AUTOSTART_STATUS="●"
+else
+    AUTOSTART="OFF"
+    AUTOSTART_COLOR="$RED"
+    AUTOSTART_STATUS="●"
+fi
 
 clear
 show_header
@@ -39,18 +50,19 @@ echo -e "${CYAN}└────────────────────�
 echo
 
 echo -e "${CYAN}${NC}"
-echo -e "${CYAN}${NC} ${CYAN}[01]${NC} SSH Manager        ${CYAN}[04]${NC} Configuración          ${CYAN}${NC}"
-echo -e "${CYAN}${NC} ${CYAN}[02]${NC} V2Ray Manager      ${CYAN}[05]${NC} Actualizar Script      ${CYAN}${NC}"
-echo -e "${CYAN}${NC} ${CYAN}[03]${NC} Monitor                                      ${CYAN}${NC}"
+echo -e "${CYAN}${NC} ${CYAN}[01]${NC} SSH Manager        ${CYAN}[04]${NC} Configuración"
+echo -e "${CYAN}${NC} ${CYAN}[02]${NC} V2Ray Manager      ${CYAN}[05]${NC} Actualizar Script"
+echo -e "${CYAN}${NC} ${CYAN}[03]${NC} Monitor            ${CYAN}[06]${NC} Auto Iniciar ${AUTOSTART_COLOR}${AUTOSTART_STATUS}${NC}"
 echo -e "${CYAN}${NC}"
 
 echo
 
 echo -e "${CYAN}${NC}"
-echo -e "${CYAN}│${NC} ${RED}[00]${NC} Exit                                         ${CYAN}${NC}"
+echo -e "${CYAN}│${NC} ${RED}[00]${NC} Exit"
 echo -e "${CYAN}${NC}"
 echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
 echo
+
 read -p "Seleccione una opción: " opt
 
 case $opt in
@@ -73,6 +85,45 @@ case $opt in
 
 5|05)
     bash /usr/local/oxgi/modules/updater.sh
+    ;;
+
+6|06)
+
+    if [ -f "$AUTOSTART_FILE" ]; then
+
+        rm -f "$AUTOSTART_FILE"
+
+        sed -i '/# OXGI AUTOSTART START/,/# OXGI AUTOSTART END/d' /root/.bashrc
+
+        echo
+        echo -e "${RED}Auto iniciar desactivado${NC}"
+        echo -e "${WHITE}Ahora será necesario escribir:${NC} ${CYAN}oxgi${NC}"
+        sleep 2
+
+    else
+
+        touch "$AUTOSTART_FILE"
+
+        sed -i '/# OXGI AUTOSTART START/,/# OXGI AUTOSTART END/d' /root/.bashrc
+
+        cat >> /root/.bashrc << 'EOF'
+
+# OXGI AUTOSTART START
+if [ -z "$OXGI_AUTO_STARTED" ]; then
+export OXGI_AUTO_STARTED=1
+oxgi
+exit
+fi
+# OXGI AUTOSTART END
+
+EOF
+
+        echo
+        echo -e "${BLUE}Auto iniciar activado${NC}"
+        echo -e "${WHITE}Al iniciar sesión se abrirá automáticamente OXGI VPS${NC}"
+        sleep 2
+
+    fi
     ;;
 
 0|00)
