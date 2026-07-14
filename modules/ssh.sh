@@ -622,25 +622,35 @@ while true; do
                 echo -ne "\e[s"
                 
                 while true; do
-                    # Restaurar posición del cursor
-                    echo -ne "\e[u"
-                    
+                    clear
+                    show_header
+
+                    echo "$BOX_TOP"
+                    echo " Lista de Usuarios"
+                    echo "$BOX_BOT"
+                    echo
+
+                    echo "$BOX_TOP"
+                    printf " %-10s %-22s %-10s %-10s %-10s\n" \
+                        "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
+                    echo "$BOX_LINE"
+
                     for user in $users_list; do
                         exp_info=""
                         db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
+
                         if [[ -n "$db_entry" ]]; then
                             exp_epoch=$(echo "$db_entry" | cut -d':' -f2)
                             exp_datetime=$(echo "$db_entry" | cut -d':' -f3-)
-                        
-                            # Obtener el último campo (dispositivos)
+
                             max_dev=$(echo "$db_entry" | awk -F: '{print $NF}')
-                        
-                            # Si la línea no tiene campo de dispositivos, usar 1
+
                             if [[ "$db_entry" != *:*:*:* ]]; then
                                 max_dev=1
                             fi
                         else
                             exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
+
                             if [[ "$exp_info" != "never" ]]; then
                                 exp_epoch=$(date -d "$exp_info" +%s 2>/dev/null)
                                 exp_datetime="$exp_info"
@@ -648,68 +658,68 @@ while true; do
                                 exp_epoch=9999999999
                                 exp_datetime="Nunca"
                             fi
-                            max_dev=1
-                        fi
-                        
-                        # Si el campo max_dev está vacío o inválido, default a 1
-                        if [[ -z "$max_dev" ]] || [[ "$max_dev" -le 0 ]]; then 
+
                             max_dev=1
                         fi
 
-                        # Contar dispositivos conectados actualmente (usando who)
+                        if [[ -z "$max_dev" ]] || [[ "$max_dev" -le 0 ]]; then
+                            max_dev=1
+                        fi
+
                         current_dev=$(who | grep "^${user} " | wc -l)
-                        
+
                         now_epoch=$(date +%s)
-                        
+
                         if [[ "$exp_datetime" == "Nunca" ]]; then
                             status="${GREEN}Activo (Sin exp.)${NC}"
                             time_left="Nunca"
+
                         elif [[ $exp_epoch -le $now_epoch ]]; then
                             status="${RED}Expirado${NC}"
-                            # CORRECCIÓN: Cuando está expirado, mostrar 00:00:00:00:00 fijo sin seguir contando
                             time_left="${RED}00:00:00:00:00${NC}"
+
                         else
                             status="${GREEN}Activo${NC}"
+
                             diff=$((exp_epoch - now_epoch))
-                            
-                            # Calcular tiempo preciso: Meses:Días:Horas:Minutos:Segundos
-                            # 1 mes = 30 días = 2592000 segundos
+
                             months=$((diff / 2592000))
                             remaining=$((diff % 2592000))
-                            
+
                             days=$((remaining / 86400))
                             remaining=$((remaining % 86400))
-                            
+
                             hours=$((remaining / 3600))
                             remaining=$((remaining % 3600))
-                            
+
                             minutes=$((remaining / 60))
                             seconds=$((remaining % 60))
-                            
-                            time_left=$(printf "%02d:%02d:%02d:%02d:%02d" $months $days $hours $minutes $seconds)
+
+                            time_left=$(printf "%02d:%02d:%02d:%02d:%02d" \
+                                $months $days $hours $minutes $seconds)
                         fi
-                        
+
                         if who | grep -q "^${user} "; then
                             connection="${GREEN}Online${NC}"
                         else
                             connection="${GRAY}Offline${NC}"
                         fi
-                        
-                        # Imprimir fila con formato ajustado y limpiar exceso de línea anterior
-                        printf " %-9s %-22b %-22b %-24b %-25s\e[K\n" \
-                        "$user" "$time_left" "$status" "$connection" "${current_dev}/${max_dev}"
+
+                        printf " %-9s %-22b %-22b %-24b %-25s\n" \
+                            "$user" \
+                            "$time_left" \
+                            "$status" \
+                            "$connection" \
+                            "${current_dev}/${max_dev}"
                     done
-                    
-                    echo -e "$BOX_BOT\e[K"
-                    echo -e "\e[K"
-                    echo -ne "Presione cualquier tecla para continuar...\e[K"
-                    
-                    # Esperar 1 segundo por una tecla
+
+                    echo "$BOX_BOT"
+                    echo
+                    echo "Presione cualquier tecla para continuar..."
+
                     read -s -t 1 -n 1 key
                     if [[ $? -eq 0 ]]; then
-                        # Limpiar buffer de entrada de caracteres residuales
                         while read -s -t 0.1 -n 1; do :; done
-                        echo
                         break
                     fi
                 done
