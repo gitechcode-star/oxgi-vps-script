@@ -14,24 +14,40 @@ RED='\033[0;31m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-loading() {
-    local start=$1
-    local end=$2
-    local text="$3"
+run_step() {
+    local percent="$1"
+    local text="$2"
+    shift 2
 
-    for ((i=start; i<=end; i++)); do
-        filled=$((i / 2))
-        empty=$((50 - filled))
+    "$@" >/dev/null 2>&1 &
+    local pid=$!
 
-        printf "\r${CYAN}["
-        printf "%0.s█" $(seq 1 $filled 2>/dev/null)
-        printf "%0.s░" $(seq 1 $empty 2>/dev/null)
-        printf "] ${GREEN}%3d%%${NC} ${text}" "$i"
+    local spin='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    local i=0
 
-        sleep 0.01
+    while kill -0 "$pid" 2>/dev/null; do
+        printf "\r${CYAN}[%3d%%]${NC} ${GREEN}%s${NC} %s" \
+        "$percent" \
+        "${spin:$i:1}" \
+        "$text"
+
+        i=$(( (i + 1) % 10 ))
+        sleep 0.1
     done
 
-    echo
+    wait "$pid"
+    local status=$?
+
+    if [ $status -eq 0 ]; then
+        printf "\r${CYAN}[%3d%%]${NC} ${GREEN}✓${NC} %s\n" \
+        "$percent" \
+        "$text"
+    else
+        printf "\r${CYAN}[%3d%%]${NC} ${RED}✗${NC} %s\n" \
+        "$percent" \
+        "$text"
+        exit 1
+    fi
 }
 
 echo -e "${CYAN}"
@@ -52,12 +68,11 @@ if ! grep -qi "ubuntu" /etc/os-release; then
     exit 1
 fi
 
-loading 0 14 "Actualizando sistema..."
-apt update -y
-apt upgrade -y
+run_step 14 "Actualizando repositorios..." apt update -y
 
-loading 15 28 "Instalando dependencias..."
-apt install -y \
+run_step 28 "Actualizando sistema..." apt upgrade -y
+
+run_step 42 "Instalando dependencias..." apt install -y \
 git \
 curl \
 wget \
@@ -67,24 +82,16 @@ cron \
 ufw \
 nginx
 
-loading 29 42 "Descargando OXGI..."
-
 rm -rf "$INSTALL_DIR"
 
-git clone "$REPO_URL" "$INSTALL_DIR"
+run_step 56 "Descargando OXGI..." git clone "$REPO_URL" "$INSTALL_DIR"
 
 if [ ! -d "$INSTALL_DIR" ]; then
     echo -e "${RED}[ERROR] No se pudo descargar OXGI${NC}"
     exit 1
 fi
 
-loading 43 56 "Configurando permisos..."
-
-chmod +x "$INSTALL_DIR"/oxgi.sh
-chmod +x "$INSTALL_DIR"/install.sh
-chmod +x "$INSTALL_DIR"/modules/*.sh
-
-loading 57 70 "Creando configuración..."
+run_step 70 "Configurando permisos..." chmod -R +x "$INSTALL_DIR"
 
 mkdir -p /etc/oxgi
 
@@ -127,16 +134,14 @@ VERSION="$VERSION"
 AUTHOR="$AUTHOR"
 EOF
 
-loading 71 85 "Creando comando global..."
-
 cat > /usr/local/bin/oxgi << EOF
 #!/bin/bash
 bash $INSTALL_DIR/oxgi.sh
 EOF
 
-chmod +x /usr/local/bin/oxgi
+run_step 85 "Creando comando global..." chmod +x /usr/local/bin/oxgi
 
-loading 86 100 "Finalizando..."
+run_step 100 "Finalizando instalación..." sleep 2
 
 clear
 
