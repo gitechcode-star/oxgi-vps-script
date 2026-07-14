@@ -591,7 +591,8 @@ while true; do
                     fi
                     
                     # Imprimir fila con formato ajustado
-                    printf " %-10s %-18s %-12b %-12b %-10s\n" \  "$user" "$exp_info" "$status" "$connection" "${current_dev}/${max_dev}"
+                    printf " %-12s %-20s %-15b %-15b %-10s\n" \
+                    "$user" "$exp_info" "$status" "$connection" "${current_dev}/${max_dev}"
                 done
                 echo "$BOX_BOT"
             fi
