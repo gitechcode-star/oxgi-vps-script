@@ -604,21 +604,6 @@ while true; do
             ;;
 
         6)
-            users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
-            
-            if [[ -z "$users_list" ]]; then
-                clear
-                show_header
-                echo "$BOX_TOP"
-                echo " Lista de Usuarios"
-                echo "$BOX_BOT"
-                echo
-                echo -e "${RED}No hay usuarios registrados en el sistema.${NC}"
-                echo
-                read -p "ENTER para continuar..."
-                continue
-            fi
-
             clear
             show_header
             echo "$BOX_TOP"
@@ -626,89 +611,98 @@ while true; do
             echo "$BOX_BOT"
             echo
             
-            echo "$BOX_TOP"
-            printf " %-10s %-18s %-10s %-10s %-10s\n" "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
-            echo "$BOX_LINE"
+            users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
             
-            # Guardar posición del cursor justo antes de las filas de datos
-            echo -ne "\e[s"
-            
-            # Bucle de actualización en tiempo real sin parpadeo
-            while true; do
-                # Restaurar posición del cursor
-                echo -ne "\e[u"
+            if [[ -z "$users_list" ]]; then
+                echo -e "${RED}No hay usuarios registrados en el sistema.${NC}"
+                echo
+                read -p "ENTER para continuar..."
+            else
+                echo "$BOX_TOP"
+                printf " %-10s %-18s %-10s %-10s %-10s\n" "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
+                echo "$BOX_LINE"
                 
-                for user in $users_list; do
-                    exp_info=""
-                    db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
-                    if [[ -n "$db_entry" ]]; then
-                        exp_epoch=$(echo "$db_entry" | cut -d':' -f2)
+                # Guardar la posición del cursor para actualizar solo las filas sin parpadeo
+                echo -ne "\e[s"
+                
+                while true; do
+                    # Restaurar posición del cursor
+                    echo -ne "\e[u"
                     
-                        # Obtener el último campo (dispositivos)
-                        max_dev=$(echo "$db_entry" | awk -F: '{print $NF}')
-                    
-                        # Si la línea no tiene campo de dispositivos, usar 1
-                        if [[ "$db_entry" != *:*:*:* ]]; then
+                    for user in $users_list; do
+                        exp_info=""
+                        db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
+                        if [[ -n "$db_entry" ]]; then
+                            exp_epoch=$(echo "$db_entry" | cut -d':' -f2)
+                        
+                            # Obtener el último campo (dispositivos)
+                            max_dev=$(echo "$db_entry" | awk -F: '{print $NF}')
+                        
+                            # Si la línea no tiene campo de dispositivos, usar 1
+                            if [[ "$db_entry" != *:*:*:* ]]; then
+                                max_dev=1
+                            fi
+                        else
+                            exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
+                            if [[ "$exp_info" != "never" ]]; then
+                                exp_epoch=$(date -d "$exp_info" +%s 2>/dev/null)
+                            else
+                                exp_epoch=9999999999
+                            fi
                             max_dev=1
                         fi
-                    else
-                        exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
-                        if [[ "$exp_info" != "never" ]]; then
-                            exp_epoch=$(date -d "$exp_info" +%s 2>/dev/null)
-                        else
-                            exp_epoch=9999999999
+                        
+                        # Si el campo max_dev está vacío o inválido, default a 1
+                        if [[ -z "$max_dev" ]] || [[ "$max_dev" -le 0 ]]; then 
+                            max_dev=1
                         fi
-                        max_dev=1
-                    fi
-                    
-                    # Si el campo max_dev está vacío o inválido, default a 1
-                    if [[ -z "$max_dev" ]] || [[ "$max_dev" -le 0 ]]; then 
-                        max_dev=1
-                    fi
 
-                    # Contar dispositivos conectados actualmente (usando who)
-                    current_dev=$(who | grep "^${user} " | wc -l)
+                        # Contar dispositivos conectados actualmente (usando who)
+                        current_dev=$(who | grep "^${user} " | wc -l)
+                        
+                        now_epoch=$(date +%s)
+                        
+                        if [[ "$exp_info" == "never" ]]; then
+                            status="${GREEN}Activo (Sin exp.)${NC}"
+                            time_left="Nunca"
+                        elif [[ $exp_epoch -le $now_epoch ]]; then
+                            status="${RED}Expirado${NC}"
+                            time_left="00:00:00:00"
+                        else
+                            status="${GREEN}Activo${NC}"
+                            diff=$((exp_epoch - now_epoch))
+                            days=$((diff / 86400))
+                            hours=$(( (diff % 86400) / 3600 ))
+                            minutes=$(( (diff % 3600) / 60 ))
+                            seconds=$((diff % 60))
+                            time_left=$(printf "%02d:%02d:%02d:%02d" $days $hours $minutes $seconds)
+                        fi
+                        
+                        if who | grep -q "^${user} "; then
+                            connection="${GREEN}Online${NC}"
+                        else
+                            connection="${GRAY}Offline${NC}"
+                        fi
+                        
+                        # Imprimir fila con formato ajustado y limpiar exceso de línea anterior
+                        printf " %-9s %-18s %-22b %-24b %-25s\e[K\n" \
+                        "$user" "$time_left" "$status" "$connection" "${current_dev}/${max_dev}"
+                    done
                     
-                    now_epoch=$(date +%s)
+                    echo -e "$BOX_BOT\e[K"
+                    echo -e "\e[K"
+                    echo -ne "Presione cualquier tecla para continuar...\e[K"
                     
-                    if [[ "$exp_info" == "never" ]]; then
-                        status="${GREEN}Activo (Sin exp.)${NC}"
-                        time_left="Nunca"
-                    elif [[ $exp_epoch -le $now_epoch ]]; then
-                        status="${RED}Expirado${NC}"
-                        time_left="00:00:00:00"
-                    else
-                        status="${GREEN}Activo${NC}"
-                        diff=$((exp_epoch - now_epoch))
-                        days=$((diff / 86400))
-                        hours=$(( (diff % 86400) / 3600 ))
-                        minutes=$(( (diff % 3600) / 60 ))
-                        seconds=$((diff % 60))
-                        time_left=$(printf "%02d:%02d:%02d:%02d" $days $hours $minutes $seconds)
+                    # Esperar 1 segundo por una tecla
+                    read -s -t 1 -n 1 key
+                    if [[ $? -eq 0 ]]; then
+                        # Limpiar buffer de entrada de caracteres residuales
+                        while read -s -t 0.1 -n 1; do :; done
+                        echo
+                        break
                     fi
-                    
-                    if who | grep -q "^${user} "; then
-                        connection="${GREEN}Online${NC}"
-                    else
-                        connection="${GRAY}Offline${NC}"
-                    fi
-                    
-                    # Imprimir fila con formato ajustado y limpiar exceso de línea anterior
-                    printf " %-9s %-18s %-22b %-24b %-25s\e[K\n" \
-                    "$user" "$time_left" "$status" "$connection" "${current_dev}/${max_dev}"
                 done
-                echo -e "$BOX_BOT\e[K"
-                echo -e "\e[K"
-                echo -ne "Presione cualquier tecla para continuar...\e[K"
-                
-                read -s -t 1 -n 1 key
-                if [[ -n "$key" ]]; then
-                    # Limpiar buffer de entrada de caracteres residuales
-                    while read -s -t 0.1 -n 1; do :; done
-                    echo
-                    break
-                fi
-            done
+            fi
             ;;
 
         7)
