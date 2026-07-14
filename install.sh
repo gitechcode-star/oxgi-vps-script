@@ -1,47 +1,107 @@
-✔ Verificar root
-✔ Verificar Ubuntu 22.04
-✔ Actualizar sistema
-✔ Instalar dependencias base
+#!/bin/bash
 
-git
-curl
-wget
-sudo
+clear
+
+APP="OXGI VPS"
+VERSION="1.0.0"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+echo -e "${CYAN}"
+echo "===================================="
+echo "       $APP $VERSION"
+echo "===================================="
+echo -e "${NC}"
+
+if [ "$EUID" -ne 0 ]; then
+    echo -e "${RED}[ERROR] Ejecuta como root${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}[1/8] Verificando sistema...${NC}"
+
+if ! grep -q "Ubuntu" /etc/os-release; then
+    echo -e "${RED}Ubuntu requerido${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}[2/8] Actualizando paquetes...${NC}"
+
+apt update -y
+apt upgrade -y
+
+echo -e "${GREEN}[3/8] Instalando dependencias...${NC}"
+
+apt install -y \
+curl \
+wget \
+git \
+unzip \
+ufw \
+cron \
+sudo \
 nginx
-dropbear
-ufw
-unzip
-cron
 
-✔ Crear estructura
+echo -e "${GREEN}[4/8] Creando directorios...${NC}"
 
-/etc/oxgi
-/usr/local/oxgi
-/usr/local/bin/oxgi
+mkdir -p /etc/oxgi
+mkdir -p /usr/local/oxgi
+mkdir -p /usr/local/oxgi/modules
+mkdir -p /usr/local/oxgi/services
+mkdir -p /usr/local/oxgi/config
 
-✔ Crear config.conf
+echo -e "${GREEN}[5/8] Copiando archivos...${NC}"
 
-✔ Copiar módulos
+cp -r modules/* /usr/local/oxgi/modules/ 2>/dev/null
+cp -r services/* /usr/local/oxgi/services/ 2>/dev/null
+cp -r config/* /usr/local/oxgi/config/ 2>/dev/null
 
-system.sh
-ssh.sh
-dropbear.sh
-websocket.sh
-nginx.sh
-ssl.sh
-badvpn.sh
-firewall.sh
-users.sh
-v2ray.sh
-monitor.sh
+cp oxgi.sh /usr/local/oxgi/oxgi.sh
 
-✔ Registrar servicios
+chmod +x /usr/local/oxgi/oxgi.sh
+chmod +x /usr/local/oxgi/modules/*.sh 2>/dev/null
 
-oxgi-ws.service
-badvpn.service
+echo -e "${GREEN}[6/8] Creando comando global...${NC}"
 
-✔ Crear comando global
+cat > /usr/local/bin/oxgi << EOF
+#!/bin/bash
+bash /usr/local/oxgi/oxgi.sh
+EOF
 
-oxgi
+chmod +x /usr/local/bin/oxgi
 
-✔ Mostrar instalación completada
+echo -e "${GREEN}[7/8] Configuración inicial...${NC}"
+
+if [ ! -f /etc/oxgi/config.conf ]; then
+
+cat > /etc/oxgi/config.conf << EOF
+APP_NAME="OXGI VPS"
+VERSION="1.0.0"
+
+SSH_PORT="22"
+SSH_PORT_ALT="3303"
+
+WS_PORT="700"
+
+HTTP_PORT="80"
+HTTPS_PORT="443"
+
+DROPBEAR_PORT="444"
+
+BADVPN_PORT="7300"
+EOF
+
+fi
+
+echo -e "${GREEN}[8/8] Finalizando...${NC}"
+
+echo
+echo -e "${GREEN}INSTALACION COMPLETADA${NC}"
+echo
+echo "Comando:"
+echo
+echo "oxgi"
+echo
