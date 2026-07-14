@@ -24,16 +24,18 @@ echo " BADVPN   : $BADVPN_PORT"
 echo
 echo "══════════════════════════════════════"
 echo
-echo " [1] System"
-echo " [2] SSH Manager"
-echo " [3] User Manager"
-echo " [4] WebSocket Manager"
-echo " [5] Nginx Manager"
-echo " [6] SSL Manager"
-echo " [7] Dropbear Manager"
-echo " [8] BadVPN Manager"
-echo " [9] V2Ray Manager"
+echo " [1]  System"
+echo " [2]  SSH Manager"
+echo " [3]  User Manager"
+echo " [4]  WebSocket Manager"
+echo " [5]  Nginx Manager"
+echo " [6]  SSL Manager"
+echo " [7]  Dropbear Manager"
+echo " [8]  BadVPN Manager"
+echo " [9]  V2Ray Manager"
 echo " [10] Monitor"
+echo " [11] Configuración"
+echo " [12] Actualizar Script"
 echo
 echo " [0] Exit"
 echo
@@ -83,12 +85,23 @@ bash /usr/local/oxgi/modules/v2ray.sh
 bash /usr/local/oxgi/modules/monitor.sh
 ;;
 
+11)
+bash /usr/local/oxgi/modules/configuracion.sh
+;;
+
+12)
+bash /usr/local/oxgi/modules/updater.sh
+;;
+
 0)
-exit
+clear
+echo "Gracias por usar OXGI VPS"
+exit 0
 ;;
 
 *)
-echo "Opcion invalida"
+echo
+echo "Opción inválida"
 sleep 1
 ;;
 
