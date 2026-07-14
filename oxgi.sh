@@ -32,7 +32,7 @@ printf "${WHITE}%-30s %-30s${NC}\n" \
 echo
 
 echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${NC} ${WHITE}[ SSH : ${GREEN}ON${WHITE} ]   [ XRAY : ${GREEN}ON${WHITE} ]   [ NGINX : ${GREEN}ON${WHITE} ]${NC}"
+echo -e "${CYAN}│${NC} ${WHITE}[ SSH : ${GREEN}ON${WHITE} ]   [ XRAY : ${GREEN}ON${WHITE} ]   [ NGINX : ${GREEN}ON${WHITE} ]"
 echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
 
 echo
@@ -55,38 +55,38 @@ read -p "Seleccione una opción: " opt
 case $opt in
 
 1|01)
-bash /usr/local/oxgi/modules/ssh.sh
-;;
+    bash /usr/local/oxgi/modules/ssh.sh
+    ;;
 
 2|02)
-bash /usr/local/oxgi/modules/v2ray.sh
-;;
+    bash /usr/local/oxgi/modules/v2ray.sh
+    ;;
 
 3|03)
-bash /usr/local/oxgi/modules/monitor.sh
-;;
+    bash /usr/local/oxgi/modules/monitor.sh
+    ;;
 
 4|04)
-bash /usr/local/oxgi/modules/configuracion.sh
-;;
+    bash /usr/local/oxgi/modules/configuracion.sh
+    ;;
 
 5|05)
-bash /usr/local/oxgi/modules/updater.sh
-;;
+    bash /usr/local/oxgi/modules/updater.sh
+    ;;
 
 0|00)
-clear
-echo
-echo -e "${GREEN}Gracias por usar OXGI VPS${NC}"
-echo
-exit 0
-;;
+    clear
+    echo
+    echo -e "${GREEN}Gracias por usar OXGI VPS${NC}"
+    echo
+    exit 0
+    ;;
 
 *)
-echo
-echo -e "${RED}Opción inválida${NC}"
-sleep 1
-;;
+    echo
+    echo -e "${RED}Opción inválida${NC}"
+    sleep 1
+    ;;
 
 esac
 
