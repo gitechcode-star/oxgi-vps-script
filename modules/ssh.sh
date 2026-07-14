@@ -614,40 +614,28 @@ while true; do
                 echo
                 read -p "ENTER para continuar..."
             else
-                # Convertir a array para mantener orden y contar
-                declare -a users_array
-                for user in $users_list; do
-                    users_array+=("$user")
-                done
-                
-                # Dibujar la tabla una sola vez
                 echo "$BOX_TOP"
                 printf " %-10s %-22s %-10s %-10s %-10s\n" "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
                 echo "$BOX_LINE"
                 
-                # Guardar la línea inicial donde empiezan los datos de usuarios
-                start_line=$(($(tput lines) - ${#users_array[@]} - 3))
+                # Guardar la posición del cursor para actualizar solo las filas sin parpadeo
+                echo -ne "\e[s"
                 
-                # Dibujar cada usuario y guardar sus posiciones
-                declare -a user_lines
-                line_num=$start_line
-                for user in "${users_array[@]}"; do
-                    user_lines+=("$line_num")
-                    # Espacio en blanco para cada fila (se actualizará en el bucle)
-                    printf " %-10s %-22s %-10s %-10s %-10s\n" "$user" "" "" "" ""
-                    ((line_num++))
-                done
-                
-                echo "$BOX_BOT"
-                echo
-                echo "Presione cualquier tecla para continuar..."
-                
-                # Bucle de actualización en tiempo real sin parpadeo
                 while true; do
-                    idx=0
-                    for user in "${users_array[@]}"; do
-                        line=${user_lines[$idx]}
-                        
+                    clear
+                    show_header
+
+                    echo "$BOX_TOP"
+                    echo " Lista de Usuarios"
+                    echo "$BOX_BOT"
+                    echo
+
+                    echo "$BOX_TOP"
+                    printf " %-10s %-22s %-10s %-10s %-10s\n" \
+                        "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
+                    echo "$BOX_LINE"
+
+                    for user in $users_list; do
                         exp_info=""
                         db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
 
@@ -717,29 +705,24 @@ while true; do
                             connection="${GRAY}Offline${NC}"
                         fi
 
-                        # Mover cursor a la posición exacta y actualizar solo esta fila
-                        tput cup $line 1
-                        printf " %-10s %-22b %-22b %-24b %-25s" \
+                        printf " %-9s %-22b %-22b %-24b %-25s\n" \
                             "$user" \
                             "$time_left" \
                             "$status" \
                             "$connection" \
                             "${current_dev}/${max_dev}"
-                        
-                        ((idx++))
                     done
-                    
-                    # Verificar si se presionó una tecla (sin bloquear)
+
+                    echo "$BOX_BOT"
+                    echo
+                    echo "Presione cualquier tecla para continuar..."
+
                     read -s -t 1 -n 1 key
                     if [[ $? -eq 0 ]]; then
-                        # Limpiar buffer de entrada
                         while read -s -t 0.1 -n 1; do :; done
                         break
                     fi
                 done
-                
-                # Mover cursor al final para evitar problemas de visualización
-                tput cup $((line_num + 2)) 0
             fi
             ;;
 
