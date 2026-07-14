@@ -6,12 +6,8 @@ VERSION_FILE="/etc/oxgi/version.conf"
 [ -f "$CONFIG" ] && source "$CONFIG"
 [ -f "$VERSION_FILE" ] && source "$VERSION_FILE"
 
-CYAN="\e[1;36m"
-GREEN="\e[1;32m"
-RED="\e[1;31m"
-WHITE="\e[1;37m"
-YELLOW="\e[1;33m"
-NC="\e[0m"
+source /usr/local/oxgi/modules/color.sh
+source /usr/local/oxgi/modules/header.sh
 
 while true
 do
@@ -19,14 +15,7 @@ do
 [ -f "$CONFIG" ] && source "$CONFIG"
 [ -f "$VERSION_FILE" ] && source "$VERSION_FILE"
 
-clear
-
-echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
-printf "${CYAN}│${NC} %-58s ${CYAN}│${NC}\n" \
-"${WHITE}${APP_NAME} - Versión : ${VERSION} - (${AUTHOR})${NC}"
-echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
-
-echo
+show_header
 
 printf "${WHITE}%-30s %-30s${NC}\n" \
 "SSH      : $SSH_PORT,$SSH_PORT_ALT" \
@@ -41,9 +30,9 @@ printf "${WHITE}%-30s %-30s${NC}\n" \
 "BADVPN   : $BADVPN_PORT"
 
 echo
+
 echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
-printf "${CYAN}│${NC} ${WHITE}[ SSH : ${GREEN}ON${WHITE} ]   [ XRAY : ${GREEN}ON${WHITE} ]   [ NGINX : ${GREEN}ON${WHITE} ]${NC}"
-echo
+echo -e "${CYAN}│${NC} ${WHITE}[ SSH : ${GREEN}ON${WHITE} ]   [ XRAY : ${GREEN}ON${WHITE} ]   [ NGINX : ${GREEN}ON${WHITE} ]${NC}"
 echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
 
 echo
@@ -57,7 +46,7 @@ echo -e "${CYAN}└────────────────────�
 echo
 
 echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${NC} ${WHITE}[00]${NC} Exit"
+echo -e "${CYAN}│${NC} ${RED}[00]${NC} Exit"
 echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
 
 echo
@@ -88,7 +77,7 @@ bash /usr/local/oxgi/modules/updater.sh
 0|00)
 clear
 echo
-echo "Gracias por usar OXGI VPS"
+echo -e "${GREEN}Gracias por usar OXGI VPS${NC}"
 echo
 exit 0
 ;;
