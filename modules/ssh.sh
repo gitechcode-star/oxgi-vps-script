@@ -373,7 +373,8 @@ while true; do
                         connection="${GRAY}Offline${NC}"
                     fi
                     
-                    printf " %-11s %-23s %b %b\n" "$user" "$exp_info" "$status" "$connection"
+                    # Imprimir con espaciado correcto
+                    printf " %-11s %-23s %b          %b\n" "$user" "$exp_info" "$status" "$connection"
                 done
                 echo "$BOX_BOT"
             fi
