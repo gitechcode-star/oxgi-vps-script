@@ -535,7 +535,7 @@ while true; do
                 echo -e "${RED}No hay usuarios registrados en el sistema.${NC}"
             else
                 echo "$BOX_TOP"
-                printf " %-12s %-23s %-10s %-10s %-10s\n" \ "Usuario" "Expiración" "Estado" "Conexión" "Dispositivos"
+                printf " %-15s %-21s %-10s %-10s %-10s\n" \ "Usuario" "Expiración" "Estado" "Conexión" "Dispositivos"
                 echo "$BOX_LINE"
                 for user in $users_list; do
                     db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
