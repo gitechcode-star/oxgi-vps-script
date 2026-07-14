@@ -8,32 +8,51 @@ VERSION_FILE="/etc/oxgi/version.conf"
 
 source /usr/local/oxgi/modules/header.sh
 
+BLUE='\033[1;34m'
+CYAN='\033[1;36m'
+GREEN='\033[1;32m'
+WHITE='\033[1;37m'
+YELLOW='\033[1;33m'
+RED='\033[1;31m'
+NC='\033[0m'
+
 while true
 do
 
-# Recargar configuración y versión
 [ -f "$CONFIG" ] && source "$CONFIG"
 [ -f "$VERSION_FILE" ] && source "$VERSION_FILE"
 
 show_header
 
-printf "%-20s %-20s\n" "SSH      : $SSH_PORT,$SSH_PORT_ALT" "HTTP     : $HTTP_PORT"
-printf "%-20s %-20s\n" "HTTPS    : $HTTPS_PORT" "WS       : $WS_PORT"
-printf "%-20s %-20s\n" "DROPBEAR : $DROPBEAR_PORT" "BADVPN   : $BADVPN_PORT"
+printf "${WHITE}%-30s %-30s${NC}\n" \
+"SSH      : $SSH_PORT,$SSH_PORT_ALT" \
+"HTTP     : $HTTP_PORT"
+
+printf "${WHITE}%-30s %-30s${NC}\n" \
+"HTTPS    : $HTTPS_PORT" \
+"WS       : $WS_PORT"
+
+printf "${WHITE}%-30s %-30s${NC}\n" \
+"DROPBEAR : $DROPBEAR_PORT" \
+"BADVPN   : $BADVPN_PORT"
 
 echo
-echo "══════════════════════════════════════════════════════════════"
+echo -e "${BLUE}══════════════════════════════════════════════════════════════${NC}"
 echo
-echo " [1] SSH Manager"
-echo " [2] V2Ray Manager"
-echo " [3] Monitor"
+
+echo -e "${GREEN}[1]${NC} SSH Manager"
+echo -e "${GREEN}[2]${NC} V2Ray Manager"
+echo -e "${GREEN}[3]${NC} Monitor"
+
 echo
-echo " [4] Configuración"
-echo " [5] Actualizar Script"
+echo -e "${CYAN}[4]${NC} Configuración"
+echo -e "${CYAN}[5]${NC} Actualizar Script"
+
 echo
-echo " [0] Exit"
+echo -e "${RED}[0]${NC} Exit"
+
 echo
-echo "══════════════════════════════════════════════════════════════"
+echo -e "${BLUE}══════════════════════════════════════════════════════════════${NC}"
 echo
 
 read -p "Seleccione una opción: " opt
@@ -70,7 +89,7 @@ exit 0
 
 *)
 echo
-echo "Opción inválida"
+echo -e "${RED}Opción inválida${NC}"
 sleep 1
 ;;
 
