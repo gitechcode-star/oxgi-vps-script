@@ -9,6 +9,9 @@ AUTHOR="@CodeNex_oficial"
 REPO_URL="https://github.com/gitechcode-star/oxgi-vps-script.git"
 INSTALL_DIR="/usr/local/oxgi"
 
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 CYAN='\033[0;36m'
@@ -22,7 +25,7 @@ run_step() {
     echo
     echo -e "${WHITE}${text}${NC}"
 
-    "$@" >/dev/null 2>&1 &
+    "$@" >/tmp/oxgi_install.log 2>&1 &
     local pid=$!
 
     local progress=0
@@ -48,7 +51,7 @@ run_step() {
 
         printf "\r${CYAN}[%s] ${GREEN}%3d%%${NC}" "$bar" "$progress"
 
-        sleep 0.05
+        sleep 0.10
     done
 
     wait "$pid"
@@ -59,6 +62,7 @@ run_step() {
     else
         echo
         echo -e "${RED}[ERROR] ${text}${NC}"
+        cat /tmp/oxgi_install.log
         exit 1
     fi
 }
@@ -81,11 +85,31 @@ if ! grep -qi "ubuntu" /etc/os-release; then
     exit 1
 fi
 
-run_step "Actualizando repositorios..." apt update -y
+apt update -y >/dev/null 2>&1
+apt install -y whiptail dialog >/dev/null 2>&1
 
-run_step "Actualizando sistema..." apt upgrade -y
+whiptail \
+--title "OXGI VPS" \
+--yesno "¿Deseas iniciar la instalación de OXGI VPS?" 10 60
 
-run_step "Instalando dependencias..." apt install -y \
+if [ $? -ne 0 ]; then
+    clear
+    echo "Instalación cancelada."
+    exit 0
+fi
+
+run_step "Actualizando repositorios..." \
+apt update -y
+
+run_step "Actualizando sistema..." \
+apt upgrade -y \
+-o Dpkg::Options::="--force-confdef" \
+-o Dpkg::Options::="--force-confold"
+
+run_step "Instalando dependencias..." \
+apt install -y \
+-o Dpkg::Options::="--force-confdef" \
+-o Dpkg::Options::="--force-confold" \
 git \
 curl \
 wget \
@@ -93,18 +117,22 @@ unzip \
 sudo \
 cron \
 ufw \
-nginx
+nginx \
+dialog \
+whiptail
 
 rm -rf "$INSTALL_DIR"
 
-run_step "Descargando OXGI..." git clone "$REPO_URL" "$INSTALL_DIR"
+run_step "Descargando OXGI..." \
+git clone "$REPO_URL" "$INSTALL_DIR"
 
 if [ ! -d "$INSTALL_DIR" ]; then
     echo -e "${RED}[ERROR] No se pudo descargar OXGI${NC}"
     exit 1
 fi
 
-run_step "Configurando permisos..." chmod -R +x "$INSTALL_DIR"
+run_step "Configurando permisos..." \
+chmod -R +x "$INSTALL_DIR"
 
 mkdir -p /etc/oxgi
 
@@ -152,9 +180,11 @@ cat > /usr/local/bin/oxgi << EOF
 bash $INSTALL_DIR/oxgi.sh
 EOF
 
-run_step "Creando comando global..." chmod +x /usr/local/bin/oxgi
+run_step "Creando comando global..." \
+chmod +x /usr/local/bin/oxgi
 
-run_step "Finalizando instalación..." sleep 2
+run_step "Finalizando instalación..." \
+sleep 2
 
 clear
 
