@@ -46,7 +46,7 @@ if [[ "$CURRENT" -ge "$MAX" ]]; then
     echo "╠══════════════════════════════════════════════════════════════╣"
     echo "║  Límite de $MAX dispositivo(s) alcanzado.                     "
     echo "║  Conexiones activas: $CURRENT                                 "
-    echo "║  Desconecte un dispositivo antes de intentar nuevamente.     ║"
+    echo "║  Desconecte un dispositivo antes de intentar nuevamente.     "
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo ""
     sleep 5
@@ -296,7 +296,7 @@ while true; do
                 db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
                 if [[ -n "$db_entry" ]]; then
                     if [[ "$db_entry" == *:*:*:* ]]; then
-                        exp_info=$(echo "$db_entry" | sed -E 's/^[^:]+:[0-9]+:(.*):[0-9]+$/\1/')
+                        exp_info=$(echo "$db_entry" | awk -F: '{print $3":"$4":"$5}')
                     else
                         exp_info=$(echo "$db_entry" | cut -d':' -f3-)
                     fi
@@ -398,7 +398,7 @@ while true; do
                 db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
                 if [[ -n "$db_entry" ]]; then
                     if [[ "$db_entry" == *:*:*:* ]]; then
-                        exp_info=$(echo "$db_entry" | sed -E 's/^[^:]+:[0-9]+:(.*):[0-9]+$/\1/')
+                        exp_info=$(echo "$db_entry" | awk -F: '{print $3":"$4":"$5}')
                     else
                         exp_info=$(echo "$db_entry" | cut -d':' -f3-)
                     fi
@@ -501,7 +501,7 @@ while true; do
                 
                if [[ -n "$db_entry" ]]; then
                     if [[ "$db_entry" == *:*:*:* ]]; then
-                        current_date_str=$(echo "$db_entry" | sed -E 's/^[^:]+:[0-9]+:(.*):[0-9]+$/\1/')
+                        current_date_str=$(echo "$db_entry" | awk -F: '{print $3":"$4":"$5}')
                     else
                         current_date_str=$(echo "$db_entry" | cut -d':' -f3-)
                     fi
@@ -529,6 +529,7 @@ while true; do
                 new_exp_epoch=$(date -d "$new_exp_datetime" +%s)
 
                 usermod -e "$new_exp_date" "$username" 2>/dev/null
+                chage -E "$new_exp_date" "$username" 2>/dev/null
                 
                 # Actualizar DB manteniendo el nuevo límite de dispositivos
                 if [[ -f "$DB_FILE" ]]; then
@@ -633,7 +634,7 @@ while true; do
                     
                         # Reconstruir fecha completa
                         if [[ "$db_entry" == *:*:*:* ]]; then
-                            exp_info=$(echo "$db_entry" | sed -E 's/^[^:]+:[0-9]+:(.*):[0-9]+$/\1/')
+                            exp_info=$(echo "$db_entry" | awk -F: '{print $3":"$4":"$5}')
                         else
                             exp_info=$(echo "$db_entry" | cut -d':' -f3-)
                         fi
