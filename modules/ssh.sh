@@ -43,7 +43,7 @@ if [[ "$CURRENT" -ge "$MAX" ]]; then
     echo ""
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║                    CONEXIÓN RECHAZADA                        ║"
-    echo "╠══════════════════════════════════════════════════════════════╣"
+    echo "══════════════════════════════════════════════════════════════╣"
     echo "║  Límite de $MAX dispositivo(s) alcanzado.                     "
     echo "║  Conexiones activas: $CURRENT                                 "
     echo "║  Desconecte un dispositivo antes de intentar nuevamente.     "
@@ -200,7 +200,7 @@ while true; do
             esac
 
             echo "$BOX_TOP"
-            read -p "├─ Cantidad: " time_qty
+            read -p "─ Cantidad: " time_qty
             echo "$BOX_BOT"
             validar_numero "$time_qty" || { read -p "ENTER para continuar..."; continue; }
 
@@ -251,9 +251,9 @@ while true; do
             echo "├─ Dominio: $DOMAIN"
             echo "├─ Usuario: $username"
             echo "├─ Contraseña: $password"
-            echo "├─ Dispositivos máx: $max_devices"
+            echo "─ Dispositivos máx: $max_devices"
             echo "$BOX_LINE"
-            echo "├─ SSL: $SSL_PORT"
+            echo "─ SSL: $SSL_PORT"
             echo "├─ DROPBEAR: $DROPBEAR_PORT"
             echo "─ UDP: $UDP_PORT"
             echo "├─ OpenSSH: $OPENSSH_PORT"
@@ -511,7 +511,8 @@ while true; do
                         current_date_str=$(echo "$db_entry" | cut -d':' -f3-)
                     fi
 
-                    current_epoch=$(date -d "$current_date_str" +%s 2>/dev/null)
+                    # Se toma la hora actual como punto de partida para reemplazar el tiempo
+                    current_epoch=$(date +%s)
 
                     case $unit_str in
                         minutes) add_seconds=$((time_qty * 60)) ;;
