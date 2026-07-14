@@ -12,6 +12,7 @@ INSTALL_DIR="/usr/local/oxgi"
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 CYAN='\033[0;36m'
+WHITE='\033[1;37m'
 NC='\033[0m'
 
 run_step() {
@@ -22,30 +23,40 @@ run_step() {
     "$@" >/dev/null 2>&1 &
     local pid=$!
 
-    local spin='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
-    local i=0
+    local pos=0
 
     while kill -0 "$pid" 2>/dev/null; do
-        printf "\r${CYAN}[%3d%%]${NC} ${GREEN}%s${NC} %s" \
+
+        pos=$((pos + 1))
+        [ $pos -gt 30 ] && pos=0
+
+        bar=""
+
+        for ((i=0; i<30; i++)); do
+            if [ $i -eq $pos ]; then
+                bar="${bar}█"
+            else
+                bar="${bar}░"
+            fi
+        done
+
+        printf "\r${CYAN}[%s] ${GREEN}%3d%%${NC} ${WHITE}%s${NC}" \
+        "$bar" \
         "$percent" \
-        "${spin:$i:1}" \
         "$text"
 
-        i=$(( (i + 1) % 10 ))
-        sleep 0.1
+        sleep 0.05
     done
 
     wait "$pid"
     local status=$?
 
     if [ $status -eq 0 ]; then
-        printf "\r${CYAN}[%3d%%]${NC} ${GREEN}✓${NC} %s\n" \
+        printf "\r${CYAN}[██████████████████████████████] ${GREEN}%3d%% ✓${NC} ${WHITE}%s${NC}\n" \
         "$percent" \
         "$text"
     else
-        printf "\r${CYAN}[%3d%%]${NC} ${RED}✗${NC} %s\n" \
-        "$percent" \
-        "$text"
+        printf "\r${RED}[ERROR]${NC} %s\n" "$text"
         exit 1
     fi
 }
