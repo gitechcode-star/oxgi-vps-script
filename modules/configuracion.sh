@@ -15,41 +15,45 @@ do
 show_header
 
 echo
-printf "${WHITE}%-30s %-30s${NC}\n" \
-"SSH      : $SSH_PORT,$SSH_PORT_ALT" \
-"HTTP     : $HTTP_PORT"
 
 printf "${WHITE}%-30s %-30s${NC}\n" \
-"HTTPS    : $HTTPS_PORT" \
-"WS       : $WS_PORT"
+"${CYAN}SSH      :${NC} ${GREEN}$SSH_PORT,$SSH_PORT_ALT${NC}" \
+"${CYAN}HTTP     :${NC} ${GREEN}$HTTP_PORT${NC}"
 
 printf "${WHITE}%-30s %-30s${NC}\n" \
-"DROPBEAR : $DROPBEAR_PORT" \
-"BADVPN   : $BADVPN_PORT"
+"${CYAN}HTTPS    :${NC} ${GREEN}$HTTPS_PORT${NC}" \
+"${CYAN}WS       :${NC} ${GREEN}$WS_PORT${NC}"
+
+printf "${WHITE}%-30s %-30s${NC}\n" \
+"${CYAN}DROPBEAR :${NC} ${GREEN}$DROPBEAR_PORT${NC}" \
+"${CYAN}BADVPN   :${NC} ${GREEN}$BADVPN_PORT${NC}"
 
 echo
+
 echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
-printf "${CYAN}│${NC} ${WHITE}Dominio : ${YELLOW}${DOMAIN:-No Configurado}${NC}"
-echo
+echo -e "${CYAN}│${NC} ${WHITE}Dominio :${NC} ${YELLOW}${DOMAIN:-No Configurado}${NC}"
 echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
 
 echo
 
 echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${NC} ${WHITE}[01]${NC} Nginx Manager        ${WHITE}[05]${NC} BadVPN Manager"
-echo -e "${CYAN}│${NC} ${WHITE}[02]${NC} SSL Manager          ${WHITE}[06]${NC} Firewall Manager"
-echo -e "${CYAN}│${NC} ${WHITE}[03]${NC} WebSocket Manager    ${WHITE}[07]${NC} Puertos"
-echo -e "${CYAN}│${NC} ${WHITE}[04]${NC} Dropbear Manager     ${WHITE}[08]${NC} Dominios"
+
+echo -e "${CYAN}│${NC} ${GREEN}[01]${NC} ${WHITE}Nginx Manager${NC}        ${GREEN}[05]${NC} ${WHITE}BadVPN Manager${NC}"
+echo -e "${CYAN}│${NC} ${GREEN}[02]${NC} ${WHITE}SSL Manager${NC}          ${GREEN}[06]${NC} ${WHITE}Firewall Manager${NC}"
+echo -e "${CYAN}│${NC} ${GREEN}[03]${NC} ${WHITE}WebSocket Manager${NC}    ${GREEN}[07]${NC} ${WHITE}Puertos${NC}"
+echo -e "${CYAN}│${NC} ${GREEN}[04]${NC} ${WHITE}Dropbear Manager${NC}     ${GREEN}[08]${NC} ${WHITE}Dominios${NC}"
+
 echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
 
 echo
 
 echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${NC} ${WHITE}[00]${NC} Regresar"
+echo -e "${CYAN}│${NC} ${RED}[00]${NC} ${WHITE}Regresar${NC}"
 echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
 
 echo
-read -p "Seleccione una opción: " opt
+
+read -p "$(echo -e "${YELLOW}Seleccione una opción:${NC} ")" opt
 
 case $opt in
 
