@@ -4,82 +4,95 @@ CONFIG="/etc/oxgi/config.conf"
 
 [ -f "$CONFIG" ] && source "$CONFIG"
 
+source /usr/local/oxgi/modules/color.sh
+source /usr/local/oxgi/modules/header.sh
+
 while true
 do
 
-clear
+[ -f "$CONFIG" ] && source "$CONFIG"
 
-echo "══════════════════════════════════════"
-echo "            CONFIGURACION"
-echo "══════════════════════════════════════"
-echo
-echo " Dominio : ${DOMAIN:-No Configurado}"
-echo
-echo " SSH      : $SSH_PORT,$SSH_PORT_ALT"
-echo " HTTP     : $HTTP_PORT"
-echo " HTTPS    : $HTTPS_PORT"
-echo " WS       : $WS_PORT"
-echo " DROPBEAR : $DROPBEAR_PORT"
-echo " BADVPN   : $BADVPN_PORT"
-echo
-echo "══════════════════════════════════════"
-echo
-echo " [1] Nginx Manager"
-echo " [2] SSL Manager"
-echo " [3] WebSocket Manager"
-echo " [4] Dropbear Manager"
-echo " [5] BadVPN Manager"
-echo " [6] Firewall Manager"
-echo " [7] Puertos"
-echo " [8] Dominios"
-echo
-echo " [0] Regresar"
-echo
-echo "══════════════════════════════════════"
+show_header
 
-read -p "Seleccione una opcion: " opt
+echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
+printf "${CYAN}│${NC} %-58s ${CYAN}│${NC}\n" "${WHITE}CONFIGURACIÓN${NC}"
+echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
+
+echo
+
+echo -e "${WHITE}Dominio : ${YELLOW}${DOMAIN:-No Configurado}${NC}"
+echo
+
+printf "${WHITE}%-30s %-30s${NC}\n" \
+"SSH      : $SSH_PORT,$SSH_PORT_ALT" \
+"HTTP     : $HTTP_PORT"
+
+printf "${WHITE}%-30s %-30s${NC}\n" \
+"HTTPS    : $HTTPS_PORT" \
+"WS       : $WS_PORT"
+
+printf "${WHITE}%-30s %-30s${NC}\n" \
+"DROPBEAR : $DROPBEAR_PORT" \
+"BADVPN   : $BADVPN_PORT"
+
+echo
+echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
+echo -e "${CYAN}│${NC} ${WHITE}[01]${NC} Nginx Manager        ${WHITE}[05]${NC} BadVPN Manager"
+echo -e "${CYAN}│${NC} ${WHITE}[02]${NC} SSL Manager          ${WHITE}[06]${NC} Firewall Manager"
+echo -e "${CYAN}│${NC} ${WHITE}[03]${NC} WebSocket Manager    ${WHITE}[07]${NC} Puertos"
+echo -e "${CYAN}│${NC} ${WHITE}[04]${NC} Dropbear Manager     ${WHITE}[08]${NC} Dominios"
+echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
+
+echo
+
+echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
+echo -e "${CYAN}│${NC} ${WHITE}[00]${NC} Regresar"
+echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
+
+echo
+read -p "Seleccione una opción: " opt
 
 case $opt in
 
-1)
+1|01)
 bash /usr/local/oxgi/modules/nginx.sh
 ;;
 
-2)
+2|02)
 bash /usr/local/oxgi/modules/ssl.sh
 ;;
 
-3)
+3|03)
 bash /usr/local/oxgi/modules/websocket.sh
 ;;
 
-4)
+4|04)
 bash /usr/local/oxgi/modules/dropbear.sh
 ;;
 
-5)
+5|05)
 bash /usr/local/oxgi/modules/badvpn.sh
 ;;
 
-6)
+6|06)
 bash /usr/local/oxgi/modules/firewall.sh
 ;;
 
-7)
+7|07)
 bash /usr/local/oxgi/modules/puertos.sh
 ;;
 
-8)
+8|08)
 bash /usr/local/oxgi/modules/dominios.sh
 ;;
 
-0)
+0|00)
 break
 ;;
 
 *)
 echo
-echo "Opcion invalida"
+echo -e "${RED}Opción inválida${NC}"
 sleep 1
 ;;
 
