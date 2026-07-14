@@ -27,7 +27,7 @@ echo " BADVPN   : $BADVPN_PORT"
 echo
 echo "══════════════════════════════════════"
 echo
-echo " [1] SSH Manager"
+echo " [1] 1SSH Manager"
 echo " [2] V2Ray Manager"
 echo " [3] Monitor"
 echo
