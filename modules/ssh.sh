@@ -586,9 +586,9 @@ while true; do
         6)
             clear
             show_header
-            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
+            
             echo -e "${CYAN}${NC} Lista de Usuarios                                          ${CYAN}${NC}"
-            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
+            
             echo
             
             users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
@@ -599,24 +599,24 @@ while true; do
                 read -p "ENTER para continuar..."
             else
                 echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-                printf "${CYAN}${NC} %-10s %-22s %-10s %-10s %-10s ${CYAN}${NC}\n" "Usuario" "Caduca en" "Estado" "Conexión" "Dispositivos"
+                printf "${CYAN}${NC} %-10s %-22s %-10s %-10s %-10s ${CYAN}${NC}\n" "Usuario" "Tiempo" "Estado" "Conexión" "Dispositivos"
                 echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
                 
                 for user in $users_list; do
                     exp_info=""
-                    db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
+                    db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null  head -1)
 
                     if [[ -n "$db_entry" ]]; then
-                        exp_epoch=$(echo "$db_entry" | cut -d':' -f2)
-                        exp_datetime=$(echo "$db_entry" | cut -d':' -f3-)
+                        exp_epoch=$(echo "$db_entry"  cut -d':' -f2)
+                        exp_datetime=$(echo "$db_entry"  cut -d':' -f3-)
 
-                        max_dev=$(echo "$db_entry" | awk -F: '{print $NF}')
+                        max_dev=$(echo "$db_entry"  awk -F: '{print $NF}')
 
                         if [[ "$db_entry" != *:*:*:* ]]; then
                             max_dev=1
                         fi
                     else
-                        exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
+                        exp_info=$(chage -l "$user"  grep "Account expires"  cut -d: -f2  xargs)
 
                         if [[ "$exp_info" != "never" ]]; then
                             exp_epoch=$(date -d "$exp_info" +%s 2>/dev/null)
