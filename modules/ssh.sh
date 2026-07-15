@@ -563,7 +563,7 @@ while true; do
         5)
             clear
             show_header
-            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
+            echo -e "${CYAN}══════════════════════════════════════════════════════════════╗${NC}"
             echo -e "${CYAN}${NC} Usuarios Online                                            ${CYAN}${NC}"
             echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
             echo
@@ -599,7 +599,7 @@ while true; do
                 read -p "ENTER para continuar..."
             else
                 echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-                printf " %-9s %-13s %-11s %-14s %-12s\n" "Usuario" "Tiempo" "Estado" "Conexión" "Dispositivos"
+                printf " %-10s %-12s %-10s %-10s %-12s\n" "Usuario" "Tiempo" "Estado" "Conexión" "Dispositivos"
                 echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
                 
                 for user in $users_list; do
@@ -671,7 +671,7 @@ while true; do
                         connection="${GRAY}Offline${NC}"
                     fi
 
-                    printf " %-9s %-13b %-11b %-14b %-12s\n" \
+                    printf " %-10s %-12b %-10b %-10b %-12s\n" \
                         "$user" \
                         "$time_left" \
                         "$status" \
@@ -679,7 +679,7 @@ while true; do
                         "${current_dev}/${max_dev}"
                 done
 
-                echo -e "${CYAN}────────────────────────────────────────────────────────────────${NC}"
+                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
                 echo
                 read -p "ENTER para continuar..."
             fi
@@ -690,7 +690,7 @@ while true; do
             show_header
             echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
             echo -e "${CYAN}${NC} Eliminar Usuarios Expirados                                ${CYAN}${NC}"
-            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
+            echo -e "${CYAN}══════════════════════════════════════════════════════════════╝${NC}"
             echo
             
             deleted_count=0
@@ -702,7 +702,7 @@ while true; do
                         if [[ "$db_epoch" -lt "$current_epoch" ]]; then
                             if id "$db_user" &>/dev/null; then
                                 userdel "$db_user" 2>/dev/null
-                                echo -e "${RED}🗑️ Usuario '$db_user' eliminado (Expiró: $db_datetime)${NC}"
+                                echo -e "${RED}️ Usuario '$db_user' eliminado (Expiró: $db_datetime)${NC}"
                                 ((deleted_count++))
                             fi
                         fi
