@@ -599,7 +599,7 @@ while true; do
                 read -p "ENTER para continuar..."
             else
                 echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-                printf "${CYAN}${NC} %-10s %-12s %-12s %-12s %-12s ${CYAN}${NC}\n" "Usuario" "Tiempo" "Estado" "Conexión" "Dispositivos"
+                printf "${CYAN}${NC} %-10s %-12s %-12s %-10s %-12s ${CYAN}${NC}\n" "Usuario" "Tiempo" "Estado" "Conexión" "Dispositivos"
                 echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
                 
                 for user in $users_list; do
