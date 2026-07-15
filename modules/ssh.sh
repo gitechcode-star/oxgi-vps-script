@@ -598,9 +598,10 @@ while true; do
                 echo
                 read -p "ENTER para continuar..."
             else
-                echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-                printf " %-10s %-12s %-10s %-10s %-12s\n" "Usuario" "Tiempo" "Estado" "Conexión" "Dispositivos"
-                echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
+                echo -e "${CYAN}┌────────────────────────────────────────────────────────────────────────┐${NC}"
+                printf "%-15s %-15s %-12s %-12s %-15s\n" \
+                "Usuario" "Tiempo" "Estado" "Conexión" "Dispositivos"
+                echo -e "${CYAN}├────────────────────────────────────────────────────────────────────────┤${NC}"
                 
                 for user in $users_list; do
                     exp_info=""
@@ -671,12 +672,12 @@ while true; do
                         connection="${GRAY}Offline${NC}"
                     fi
 
-                    printf " %-10s %-12b %-10b %-10b %-12s\n" \
-                        "$user" \
-                        "$time_left" \
-                        "$status" \
-                        "$connection" \
-                        "${current_dev}/${max_dev}"
+                    printf "%-15s %-15b %-12b %-12b %-15s\n" \
+                    "$user" \
+                    "$time_left" \
+                    "$status" \
+                    "$connection" \
+                    "${current_dev}/${max_dev}"
                 done
 
                 echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
