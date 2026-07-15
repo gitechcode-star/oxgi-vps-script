@@ -238,23 +238,23 @@ while true; do
             echo -e "${GREEN}✅ Usuario creado exitosamente.${NC}"
             echo
             echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            echo -e "${CYAN}║${NC}                                                           ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} Dominio: $DOMAIN                                          ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} Usuario: $username                                         ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} Contraseña: $password                                      ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} Dispositivos máx: $max_devices                             ${CYAN}║${NC}"
+            echo -e "${CYAN}${NC}                                                           ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} Dominio: $DOMAIN                                          ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} Usuario: $username                                         ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} Contraseña: $password                                      ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} Dispositivos máx: $max_devices                             ${CYAN}${NC}"
             echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            echo -e "${CYAN}║${NC} SSL: $SSL_PORT                                            ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} DROPBEAR: $DROPBEAR_PORT                                  ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} UDP: $UDP_PORT                                            ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} OpenSSH: $OPENSSH_PORT                                    ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} WebSocket: $WEBSOCKET_PORT                                ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} V2Ray: $V2RAY_PORT                                        ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC}                                                           ${CYAN}║${NC}"
+            echo -e "${CYAN}${NC} SSL: $SSL_PORT                                            ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} DROPBEAR: $DROPBEAR_PORT                                  ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} UDP: $UDP_PORT                                            ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} OpenSSH: $OPENSSH_PORT                                    ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} WebSocket: $WEBSOCKET_PORT                                ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} V2Ray: $V2RAY_PORT                                        ${CYAN}${NC}"
+            echo -e "${CYAN}${NC}                                                           ${CYAN}${NC}"
             echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             echo
             echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            echo -e "${CYAN}║${NC} Expira el: $exp_datetime                                  ${CYAN}║${NC}"
+            echo -e "${CYAN}${NC} Expira el: $exp_datetime                                  ${CYAN}${NC}"
             echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             echo
             read -p "ENTER para continuar..."
@@ -264,7 +264,7 @@ while true; do
             clear
             show_header
             echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            echo -e "${CYAN}║${NC} Eliminar Usuario SSH                                       ${CYAN}║${NC}"
+            echo -e "${CYAN}${NC} Eliminar Usuario SSH                                       ${CYAN}${NC}"
             echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             echo
             
@@ -277,7 +277,7 @@ while true; do
             fi
 
             echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            printf "${CYAN}║${NC} %-5s %-15s %-24s %-26s ${CYAN}║${NC}\n" "N°" "Usuario" "Expiración" "Estado"
+            printf "${CYAN}${NC} %-5s %-15s %-24s %-26s ${CYAN}${NC}\n" "N°" "Usuario" "Expiración" "Estado"
             echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             
             i=1
@@ -338,7 +338,7 @@ while true; do
             fi
             
             echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            read -p "║ ¿Está seguro de eliminar los usuarios seleccionados? (s/N): " confirm
+            read -p " ¿Está seguro de eliminar los usuarios seleccionados? (s/N): " confirm
             echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             
             if [[ "$confirm" =~ ^[Ss]$ ]]; then
@@ -379,7 +379,7 @@ while true; do
             fi
 
             echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            printf "${CYAN}║${NC} %-5s %-15s %-24s %-26s ${CYAN}║${NC}\n" "N°" "Usuario" "Expiración" "Estado"
+            printf "${CYAN}${NC} %-5s %-15s %-24s %-26s ${CYAN}║${NC}\n" "N°" "Usuario" "Expiración" "Estado"
             echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             
             i=1
@@ -440,14 +440,14 @@ while true; do
             fi
 
             echo
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            echo -e "${CYAN}║${NC} Seleccione la unidad de tiempo:                            ${CYAN}║${NC}"
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            echo -e "${CYAN}║${NC} [1] Minutos                                                ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} [2] Horas                                                  ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} [3] Días                                                   ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} [4] Meses (30 días)                                        ${CYAN}║${NC}"
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
+            echo -e "${CYAN}${NC} Seleccione la unidad de tiempo:                            ${CYAN}${NC}"
+            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
+            echo -e "${CYAN}${NC} [1] Minutos                                                ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} [2] Horas                                                  ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} [3] Días                                                   ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} [4] Meses (30 días)                                        ${CYAN}${NC}"
+           
             
             read -p "Opción: " unit_opt
 
@@ -523,9 +523,9 @@ while true; do
             done
 
             echo
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            echo -e "${CYAN}║${NC} Renovación completada para los usuarios seleccionados.    ${CYAN}║${NC}"
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
+            echo -e "${CYAN}${NC} Renovación completada para los usuarios seleccionados. ✅  ${CYAN}${NC}"
+            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
             echo
             read -p "ENTER para continuar..."
             ;;
@@ -533,9 +533,9 @@ while true; do
         4)
             clear
             show_header
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            echo -e "${CYAN}║${NC} Cambiar Contraseña                                         ${CYAN}║${NC}"
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
+            echo -e "${CYAN}${NC} Cambiar Contraseña                                         ${CYAN}${NC}"
+            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
             echo
             
             read -p "Nombre de usuario: " username
@@ -563,9 +563,9 @@ while true; do
         5)
             clear
             show_header
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            echo -e "${CYAN}║${NC} Usuarios Online                                            ${CYAN}║${NC}"
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
+            echo -e "${CYAN}${NC} Usuarios Online                                            ${CYAN}${NC}"
+            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
             echo
             
             online_users=$(who | awk '{print $1}' | sort -u)
@@ -586,9 +586,9 @@ while true; do
         6)
             clear
             show_header
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            echo -e "${CYAN}║${NC} Lista de Usuarios                                          ${CYAN}║${NC}"
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
+            echo -e "${CYAN}${NC} Lista de Usuarios                                          ${CYAN}${NC}"
+            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
             echo
             
             users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
@@ -598,9 +598,9 @@ while true; do
                 echo
                 read -p "ENTER para continuar..."
             else
-                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-                printf "${CYAN}║${NC} %-10s %-22s %-10s %-10s %-10s ${CYAN}║${NC}\n" "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
-                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+                echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
+                printf "${CYAN}${NC} %-10s %-22s %-10s %-10s %-10s ${CYAN}${NC}\n" "Usuario" "Caduca en" "Estado" "Conexión" "Dispositivos"
+                echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
                 
                 for user in $users_list; do
                     exp_info=""
@@ -688,9 +688,9 @@ while true; do
         7)
             clear
             show_header
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            echo -e "${CYAN}║${NC} Eliminar Usuarios Expirados                                ${CYAN}║${NC}"
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
+            echo -e "${CYAN}${NC} Eliminar Usuarios Expirados                                ${CYAN}${NC}"
+            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
             echo
             
             deleted_count=0
@@ -737,12 +737,12 @@ while true; do
             echo
             if [[ $deleted_count -eq 0 ]]; then
                 echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-                echo -e "${CYAN}║${NC} No se encontraron usuarios expirados.                     ${CYAN}║${NC}"
+                echo -e "${CYAN}${NC} No se encontraron usuarios expirados.                     ${CYAN}${NC}"
                 echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             else
-                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-                echo -e "${CYAN}║${NC} Se eliminaron $deleted_count usuario(s) expirado(s).                  ${CYAN}║${NC}"
-                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+                
+                echo -e "${CYAN}${NC} Se eliminaron $deleted_count usuario(s) expirado(s).                  ${CYAN}${NC}"
+                
             fi
             echo
             read -p "ENTER para continuar..."
