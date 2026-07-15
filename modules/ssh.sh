@@ -672,12 +672,13 @@ while true; do
                         connection="${GRAY}Offline${NC}"
                     fi
 
-                    printf "%-15s %-15s %-12s %-12s %-15s\n" \
+                    printf "%-15s %-15b %-12b %-12b %-15s\n" \
                     "$user" \
-                    "$(echo -e "$time_left" | sed 's/\x1b\[[0-9;]*m//g')" \
-                    "$(echo -e "$status" | sed 's/\x1b\[[0-9;]*m//g')" \
-                    "$(echo -e "$connection" | sed 's/\x1b\[[0-9;]*m//g')" \
+                    "$time_left" \
+                    "$status" \
+                    "$connection" \
                     "${current_dev}/${max_dev}"
+                done
 
                 echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
                 echo
