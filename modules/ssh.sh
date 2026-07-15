@@ -42,11 +42,11 @@ fi
 if [[ "$CURRENT" -ge "$MAX" ]]; then
     echo ""
     echo "══════════════════════════════════════════════════════════════╗"
-    echo "║                    CONEXIÓN RECHAZADA                        ║"
+    echo "                    CONEXIÓN RECHAZADA                        ║"
     echo "╠══════════════════════════════════════════════════════════════"
-    echo "║  Límite de $MAX dispositivo(s) alcanzado.                     "
-    echo "║  Conexiones activas: $CURRENT                                 "
-    echo "║  Desconecte un dispositivo antes de intentar nuevamente.     "
+    echo "  Límite de $MAX dispositivo(s) alcanzado.                     "
+    echo "  Conexiones activas: $CURRENT                                 "
+    echo "  Desconecte un dispositivo antes de intentar nuevamente.     "
     echo "══════════════════════════════════════════════════════════════╝"
     echo ""
     sleep 5
@@ -311,7 +311,7 @@ while true; do
                     status="${GREEN}Activo${NC}"
                 fi
                 
-                printf "${CYAN}║${NC} %-5s %-15s %-24s %-26b ${CYAN}║${NC}\n" "$i" "$user" "$exp_info" "$status"
+                printf "${CYAN} ${NC} %-5s %-15s %-24s %-26b ${CYAN} ${NC}\n" "$i" "$user" "$exp_info" "$status"
                 ((i++))
             done
             echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
@@ -366,7 +366,7 @@ while true; do
             clear
             show_header
             echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            echo -e "${CYAN}║${NC} Renovar Usuario SSH                                        ${CYAN}║${NC}"
+            echo -e "${CYAN} ${NC} Renovar Usuario SSH                                        ${CYAN} ${NC}"
             echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             echo
             
@@ -379,7 +379,7 @@ while true; do
             fi
 
             echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            printf "${CYAN}${NC} %-5s %-15s %-24s %-26s ${CYAN}║${NC}\n" "N°" "Usuario" "Expiración" "Estado"
+            printf "${CYAN}${NC} %-5s %-15s %-24s %-26s ${CYAN} ${NC}\n" "N°" "Usuario" "Expiración" "Estado"
             echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             
             i=1
@@ -413,7 +413,7 @@ while true; do
                     status="${GREEN}Activo${NC}"
                 fi
                 
-                printf "${CYAN}║${NC} %-5s %-15s %-24s %-26b ${CYAN}║${NC}\n" "$i" "$user" "$exp_info" "$status"
+                printf "${CYAN} ${NC} %-5s %-15s %-24s %-26b ${CYAN} ${NC}\n" "$i" "$user" "$exp_info" "$status"
                 ((i++))
             done
             echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
@@ -574,9 +574,9 @@ while true; do
                 echo -e "${RED}No hay usuarios conectados en este momento.${NC}"
             else
                 echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-                printf "${CYAN}║${NC} %-11s %-9s %-17s %s %s ${CYAN}║${NC}\n" "Usuario" "Terminal" "IP/Puerto" "Fecha" "Hora"
+                printf "${CYAN} ${NC} %-11s %-9s %-17s %s %s ${CYAN} ${NC}\n" "Usuario" "Terminal" "IP/Puerto" "Fecha" "Hora"
                 echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-                who | awk '{printf "${CYAN}║${NC} %-11s %-9s %-17s %s %s ${CYAN}║${NC}\n", $1, $2, $5, $3, $4}'
+                who | awk '{printf "${CYAN} ${NC} %-11s %-9s %-17s %s %s ${CYAN} ${NC}\n", $1, $2, $5, $3, $4}'
                 echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             fi
             echo
@@ -671,7 +671,7 @@ while true; do
                         connection="${GRAY}Offline${NC}"
                     fi
 
-                    printf "${CYAN}║${NC} %-9s %-22b %-22b %-24b %-25s ${CYAN}║${NC}\n" \
+                    printf "${CYAN} ${NC} %-9s %-22b %-22b %-24b %-25s ${CYAN} ${NC}\n" \
                         "$user" \
                         "$time_left" \
                         "$status" \
