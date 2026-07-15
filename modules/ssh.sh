@@ -598,8 +598,8 @@ while true; do
                 echo
                 read -p "ENTER para continuar..."
             else
-                echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-                printf "${CYAN}${NC} %-10s %-22s %-10s %-10s %-10s ${CYAN}${NC}\n" "Usuario" "Tiempo" "Estado" "Conexión" "Dispositivos"
+                echo -e "${CYAN}══════════════════════════════════════════════════════════════╗${NC}"
+                printf "${CYAN}${NC} %-10s %-15s %-12s %-12s %-12s ${CYAN}${NC}\n" "Usuario" "Tiempo" "Estado" "Conexión" "Dispositivos"
                 echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
                 
                 for user in $users_list; do
@@ -638,12 +638,12 @@ while true; do
                     now_epoch=$(date +%s)
 
                     if [[ "$exp_datetime" == "Nunca" ]]; then
-                        status="${GREEN}Activo (Sin exp.)${NC}"
+                        status="${GREEN}Activo${NC}"
                         time_left="Nunca"
 
                     elif [[ $exp_epoch -le $now_epoch ]]; then
-                        status="${RED}Expirado${NC}"
                         time_left="${RED}Expirado${NC}"
+                        status="${GRAY}Offline${NC}"
 
                     else
                         status="${GREEN}Activo${NC}"
@@ -671,7 +671,7 @@ while true; do
                         connection="${GRAY}Offline${NC}"
                     fi
 
-                    printf "${CYAN} ${NC} %-9s %-22b %-22b %-24b %-25s ${CYAN} ${NC}\n" \
+                    printf "${CYAN} ${NC} %-9s %-15b %-12b %-12b %-12s ${CYAN} ${NC}\n" \
                         "$user" \
                         "$time_left" \
                         "$status" \
