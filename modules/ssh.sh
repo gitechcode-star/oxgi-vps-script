@@ -131,8 +131,6 @@ obtener_puertos() {
 while true; do
     clear
     show_header
-    echo -e "${GREEN}SSH MANAGER${NC}"
-    echo
     echo -e "${CYAN}[1]${NC} Crear Usuario SSH"
     echo -e "${CYAN}[2]${NC} Eliminar Usuario SSH"
     echo -e "${CYAN}[3]${NC} Renovar Usuario SSH"
@@ -152,9 +150,9 @@ while true; do
         1)
             clear
             show_header
-            echo "$BOX_TOP"
-            echo "│ Crear Usuario SSH"
-            echo "$BOX_BOT"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}║${NC} Crear Usuario SSH                                         ${CYAN}║${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             echo
             
             read -p "Nombre de usuario: " username
@@ -173,19 +171,16 @@ while true; do
             fi
 
             echo
-            echo "$BOX_TOP"
-            echo "│ Seleccione la unidad de tiempo:"
-            echo "$BOX_BOT"
-            echo "$BOX_TOP"
-            echo "│  [1] Minutos"
-            echo "│  [2] Horas"
-            echo "│  [3] Días"
-            echo "│  [4] Meses (30 días)"
-            echo "$BOX_BOT"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}║${NC} Seleccione la unidad de tiempo:                            ${CYAN}║${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}║${NC} [1] Minutos                                                ${CYAN}║${NC}"
+            echo -e "${CYAN}║${NC} [2] Horas                                                  ${CYAN}║${NC}"
+            echo -e "${CYAN}║${NC} [3] Días                                                   ${CYAN}║${NC}"
+            echo -e "${CYAN}║${NC} [4] Meses (30 días)                                        ${CYAN}║${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             
-            echo "$BOX_TOP"
-            read -p "│ Opción: " unit_opt
-            echo "$BOX_BOT"
+            read -p "Opción: " unit_opt
             
             case $unit_opt in
                 1) unit_str="minutes" ;;
@@ -199,14 +194,10 @@ while true; do
                     ;;
             esac
 
-            echo "$BOX_TOP"
-            read -p "│ Cantidad: " time_qty
-            echo "$BOX_BOT"
+            read -p "Cantidad: " time_qty
             validar_numero "$time_qty" || { read -p "ENTER para continuar..."; continue; }
 
-            echo "$BOX_TOP"
-            read -p "│ Número máximo de dispositivos: " max_devices
-            echo "$BOX_BOT"
+            read -p "Número máximo de dispositivos: " max_devices
             
             # Validar solo que sea un número entero positivo (sin límite máximo)
             if [[ ! "$max_devices" =~ ^[0-9]+$ ]] || [[ "$max_devices" -le 0 ]]; then
@@ -246,25 +237,25 @@ while true; do
             echo
             echo -e "${GREEN}✅ Usuario creado exitosamente.${NC}"
             echo
-            echo "$BOX_TOP"
-            echo "│"
-            echo "│ Dominio: $DOMAIN"
-            echo "│ Usuario: $username"
-            echo "│ Contraseña: $password"
-            echo "│ Dispositivos máx: $max_devices"
-            echo "$BOX_LINE"
-            echo "│ SSL: $SSL_PORT"
-            echo "│ DROPBEAR: $DROPBEAR_PORT"
-            echo "│ UDP: $UDP_PORT"
-            echo "│ OpenSSH: $OPENSSH_PORT"
-            echo "│ WebSocket: $WEBSOCKET_PORT"
-            echo "│ V2Ray: $V2RAY_PORT"
-            echo "│"
-            echo "$BOX_BOT"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}║${NC}                                                           ${CYAN}║${NC}"
+            echo -e "${CYAN}║${NC} Dominio: $DOMAIN                                          ${CYAN}║${NC}"
+            echo -e "${CYAN}║${NC} Usuario: $username                                         ${CYAN}║${NC}"
+            echo -e "${CYAN}║${NC} Contraseña: $password                                      ${CYAN}║${NC}"
+            echo -e "${CYAN}║${NC} Dispositivos máx: $max_devices                             ${CYAN}║${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}║${NC} SSL: $SSL_PORT                                            ${CYAN}║${NC}"
+            echo -e "${CYAN}║${NC} DROPBEAR: $DROPBEAR_PORT                                  ${CYAN}║${NC}"
+            echo -e "${CYAN}║${NC} UDP: $UDP_PORT                                            ${CYAN}║${NC}"
+            echo -e "${CYAN}║${NC} OpenSSH: $OPENSSH_PORT                                    ${CYAN}║${NC}"
+            echo -e "${CYAN}║${NC} WebSocket: $WEBSOCKET_PORT                                ${CYAN}║${NC}"
+            echo -e "${CYAN}║${NC} V2Ray: $V2RAY_PORT                                        ${CYAN}║${NC}"
+            echo -e "${CYAN}║${NC}                                                           ${CYAN}║${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             echo
-            echo "$BOX_TOP"
-            echo "│ Expira el: $exp_datetime"
-            echo "$BOX_BOT"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}║${NC} Expira el: $exp_datetime                                  ${CYAN}║${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             echo
             read -p "ENTER para continuar..."
             ;;
@@ -272,9 +263,9 @@ while true; do
         2)
             clear
             show_header
-            echo "$BOX_TOP"
-            echo "│ Eliminar Usuario SSH"
-            echo "$BOX_BOT"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}║${NC} Eliminar Usuario SSH                                       ${CYAN}║${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             echo
             
             users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
@@ -285,9 +276,9 @@ while true; do
                 continue
             fi
 
-            echo "$BOX_TOP"
-            printf "│ %-5s %-15s %-24s %-26s\n" "N°" "Usuario" "Expiración" "Estado"
-            echo "$BOX_LINE"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            printf "${CYAN}║${NC} %-5s %-15s %-24s %-26s ${CYAN}║${NC}\n" "N°" "Usuario" "Expiración" "Estado"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             
             i=1
             declare -a user_array
@@ -320,10 +311,10 @@ while true; do
                     status="${GREEN}Activo${NC}"
                 fi
                 
-                printf "│ %-5s %-15s %-24s %-26b\n" "$i" "$user" "$exp_info" "$status"
+                printf "${CYAN}║${NC} %-5s %-15s %-24s %-26b ${CYAN}║${NC}\n" "$i" "$user" "$exp_info" "$status"
                 ((i++))
             done
-            echo "$BOX_BOT"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             echo
             
             read -p "Ingrese el/los número(s) de usuario a eliminar (ej: 1 o 1,2,3): " selection
@@ -346,9 +337,9 @@ while true; do
                 continue
             fi
             
-            echo "$BOX_TOP"
-            read -p "│ ¿Está seguro de eliminar los usuarios seleccionados? (s/N): " confirm
-            echo "$BOX_BOT"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            read -p "║ ¿Está seguro de eliminar los usuarios seleccionados? (s/N): " confirm
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             
             if [[ "$confirm" =~ ^[Ss]$ ]]; then
                 for idx in "${selected_indices[@]}"; do
@@ -374,9 +365,9 @@ while true; do
         3)
             clear
             show_header
-            echo "$BOX_TOP"
-            echo "│ Renovar Usuario SSH"
-            echo "$BOX_BOT"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}║${NC} Renovar Usuario SSH                                        ${CYAN}║${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             echo
             
             users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
@@ -387,9 +378,9 @@ while true; do
                 continue
             fi
 
-            echo "$BOX_TOP"
-            printf "│ %-5s %-15s %-24s %-26s\n" "N°" "Usuario" "Expiración" "Estado"
-            echo "$BOX_LINE"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            printf "${CYAN}║${NC} %-5s %-15s %-24s %-26s ${CYAN}║${NC}\n" "N°" "Usuario" "Expiración" "Estado"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             
             i=1
             declare -a user_array
@@ -422,10 +413,10 @@ while true; do
                     status="${GREEN}Activo${NC}"
                 fi
                 
-                printf "│ %-5s %-15s %-24s %-26b\n" "$i" "$user" "$exp_info" "$status"
+                printf "${CYAN}║${NC} %-5s %-15s %-24s %-26b ${CYAN}║${NC}\n" "$i" "$user" "$exp_info" "$status"
                 ((i++))
             done
-            echo "$BOX_BOT"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             echo
             
             read -p "Ingrese el/los número(s) de usuario a renovar (ej: 1 o 1,2,3): " selection
@@ -449,19 +440,16 @@ while true; do
             fi
 
             echo
-            echo "$BOX_TOP"
-            echo "│ Seleccione la unidad de tiempo:"
-            echo "$BOX_BOT"
-            echo "$BOX_TOP"
-            echo "│  [1] Minutos"
-            echo "│  [2] Horas"
-            echo "│  [3] Días"
-            echo "│  [4] Meses (30 días)"
-            echo "$BOX_BOT"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}║${NC} Seleccione la unidad de tiempo:                            ${CYAN}║${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}║${NC} [1] Minutos                                                ${CYAN}║${NC}"
+            echo -e "${CYAN}║${NC} [2] Horas                                                  ${CYAN}║${NC}"
+            echo -e "${CYAN}║${NC} [3] Días                                                   ${CYAN}║${NC}"
+            echo -e "${CYAN}║${NC} [4] Meses (30 días)                                        ${CYAN}║${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             
-            echo "$BOX_TOP"
-            read -p "│ Opción: " unit_opt
-            echo "$BOX_BOT"
+            read -p "Opción: " unit_opt
 
             case $unit_opt in
                 1) unit_str="minutes" ;;
@@ -475,14 +463,10 @@ while true; do
                     ;;
             esac
 
-            echo "$BOX_TOP"
-            read -p "│ Cantidad: " time_qty
-            echo "$BOX_BOT"
+            read -p "Cantidad: " time_qty
             validar_numero "$time_qty" || { read -p "ENTER para continuar..."; continue; }
 
-            echo "$BOX_TOP"
-            read -p "│ Número máximo de dispositivos: " max_devices_input
-            echo "$BOX_BOT"
+            read -p "Número máximo de dispositivos: " max_devices_input
             
             # Validar solo que sea un número entero positivo (sin límite máximo)
             if [[ ! "$max_devices_input" =~ ^[0-9]+$ ]] || [[ "$max_devices_input" -le 0 ]]; then
@@ -539,9 +523,9 @@ while true; do
             done
 
             echo
-            echo "$BOX_TOP"
-            echo "│ Renovación completada para los usuarios seleccionados."
-            echo "$BOX_BOT"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}║${NC} Renovación completada para los usuarios seleccionados.    ${CYAN}║${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             echo
             read -p "ENTER para continuar..."
             ;;
@@ -549,9 +533,9 @@ while true; do
         4)
             clear
             show_header
-            echo "$BOX_TOP"
-            echo "│ Cambiar Contraseña"
-            echo "$BOX_BOT"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}║${NC} Cambiar Contraseña                                         ${CYAN}║${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             echo
             
             read -p "Nombre de usuario: " username
@@ -579,9 +563,9 @@ while true; do
         5)
             clear
             show_header
-            echo "$BOX_TOP"
-            echo "│ Usuarios Online"
-            echo "$BOX_BOT"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}║${NC} Usuarios Online                                            ${CYAN}║${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             echo
             
             online_users=$(who | awk '{print $1}' | sort -u)
@@ -589,11 +573,11 @@ while true; do
             if [[ -z "$online_users" ]]; then
                 echo -e "${RED}No hay usuarios conectados en este momento.${NC}"
             else
-                echo "$BOX_TOP"
-                printf "│ %-11s %-9s %-17s %s %s\n" "Usuario" "Terminal" "IP/Puerto" "Fecha" "Hora"
-                echo "$BOX_LINE"
-                who | awk '{printf "│ %-11s %-9s %-17s %s %s\n", $1, $2, $5, $3, $4}'
-                echo "$BOX_BOT"
+                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+                printf "${CYAN}║${NC} %-11s %-9s %-17s %s %s ${CYAN}║${NC}\n" "Usuario" "Terminal" "IP/Puerto" "Fecha" "Hora"
+                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+                who | awk '{printf "${CYAN}║${NC} %-11s %-9s %-17s %s %s ${CYAN}║${NC}\n", $1, $2, $5, $3, $4}'
+                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             fi
             echo
             read -p "ENTER para continuar..."
@@ -602,9 +586,9 @@ while true; do
         6)
             clear
             show_header
-            echo "$BOX_TOP"
-            echo "│ Lista de Usuarios"
-            echo "$BOX_BOT"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}║${NC} Lista de Usuarios                                          ${CYAN}║${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             echo
             
             users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
@@ -614,9 +598,9 @@ while true; do
                 echo
                 read -p "ENTER para continuar..."
             else
-                echo "$BOX_TOP"
-                printf "│ %-10s %-22s %-10s %-10s %-10s\n" "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
-                echo "$BOX_LINE"
+                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+                printf "${CYAN}║${NC} %-10s %-22s %-10s %-10s %-10s ${CYAN}║${NC}\n" "Usuario" "Tiempo Restante" "Estado" "Conexión" "Dispositivos"
+                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
                 
                 for user in $users_list; do
                     exp_info=""
@@ -687,7 +671,7 @@ while true; do
                         connection="${GRAY}Offline${NC}"
                     fi
 
-                    printf "│ %-9s %-22b %-22b %-24b %-25s\n" \
+                    printf "${CYAN}║${NC} %-9s %-22b %-22b %-24b %-25s ${CYAN}║${NC}\n" \
                         "$user" \
                         "$time_left" \
                         "$status" \
@@ -695,7 +679,7 @@ while true; do
                         "${current_dev}/${max_dev}"
                 done
 
-                echo "$BOX_BOT"
+                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
                 echo
                 read -p "ENTER para continuar..."
             fi
@@ -704,9 +688,9 @@ while true; do
         7)
             clear
             show_header
-            echo "$BOX_TOP"
-            echo "│ Eliminar Usuarios Expirados"
-            echo "$BOX_BOT"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}║${NC} Eliminar Usuarios Expirados                                ${CYAN}║${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             echo
             
             deleted_count=0
@@ -718,7 +702,7 @@ while true; do
                         if [[ "$db_epoch" -lt "$current_epoch" ]]; then
                             if id "$db_user" &>/dev/null; then
                                 userdel "$db_user" 2>/dev/null
-                                echo -e "${RED}️ Usuario '$db_user' eliminado (Expiró: $db_datetime)${NC}"
+                                echo -e "${RED}🗑️ Usuario '$db_user' eliminado (Expiró: $db_datetime)${NC}"
                                 ((deleted_count++))
                             fi
                         fi
@@ -752,13 +736,13 @@ while true; do
             
             echo
             if [[ $deleted_count -eq 0 ]]; then
-                echo "$BOX_TOP"
-                echo "│ No se encontraron usuarios expirados."
-                echo "$BOX_BOT"
+                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+                echo -e "${CYAN}║${NC} No se encontraron usuarios expirados.                     ${CYAN}║${NC}"
+                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             else
-                echo "$BOX_TOP"
-                echo "│ Se eliminaron $deleted_count usuario(s) expirado(s)."
-                echo "$BOX_BOT"
+                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+                echo -e "${CYAN}║${NC} Se eliminaron $deleted_count usuario(s) expirado(s).                  ${CYAN}║${NC}"
+                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             fi
             echo
             read -p "ENTER para continuar..."
