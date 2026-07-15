@@ -604,19 +604,19 @@ while true; do
                 
                 for user in $users_list; do
                     exp_info=""
-                    db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null  head -1)
+                    db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
 
                     if [[ -n "$db_entry" ]]; then
-                        exp_epoch=$(echo "$db_entry"  cut -d':' -f2)
-                        exp_datetime=$(echo "$db_entry"  cut -d':' -f3-)
+                        exp_epoch=$(echo "$db_entry" | cut -d':' -f2)
+                        exp_datetime=$(echo "$db_entry" | cut -d':' -f3-)
 
-                        max_dev=$(echo "$db_entry"  awk -F: '{print $NF}')
+                        max_dev=$(echo "$db_entry" | awk -F: '{print $NF}')
 
                         if [[ "$db_entry" != *:*:*:* ]]; then
                             max_dev=1
                         fi
                     else
-                        exp_info=$(chage -l "$user"  grep "Account expires"  cut -d: -f2  xargs)
+                        exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
 
                         if [[ "$exp_info" != "never" ]]; then
                             exp_epoch=$(date -d "$exp_info" +%s 2>/dev/null)
