@@ -40,7 +40,7 @@ printf "${WHITE}%-30s %-30s${NC}\n" \
 echo
 
 echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${NC} ${WHITE}[ SSH : ${GREEN}ON${WHITE} ]   [ XRAY : ${GREEN}ON${WHITE} ]   [ NGINX : ${GREEN}ON${WHITE} ]${NC}"
+echo -e "${CYAN}${NC} ${WHITE}[ SSH : ${GREEN}ON${WHITE} ]   [ XRAY : ${GREEN}ON${WHITE} ]   [ NGINX : ${GREEN}ON${WHITE} ]${NC}"
 echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
 
 echo
@@ -54,7 +54,7 @@ echo -e "${CYAN}${NC}"
 echo
 
 echo -e "${CYAN}${NC}"
-echo -e "${CYAN}│${NC} ${RED}[00]${NC} Exit"
+echo -e "${CYAN}${NC} ${RED}[0]${NC} Exit"
 echo -e "${CYAN}${NC}"
 echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
 echo
