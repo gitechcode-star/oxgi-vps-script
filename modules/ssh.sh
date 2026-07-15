@@ -150,9 +150,9 @@ while true; do
         1)
             clear
             show_header
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            echo -e "${CYAN}║${NC} Crear Usuario SSH                                         ${CYAN}║${NC}"
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
+            echo -e "${CYAN}${NC} Crear Usuario SSH                                         ${CYAN}${NC}"
+            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
             echo
             
             read -p "Nombre de usuario: " username
@@ -171,14 +171,14 @@ while true; do
             fi
 
             echo
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            echo -e "${CYAN}║${NC} Seleccione la unidad de tiempo:                            ${CYAN}║${NC}"
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            echo -e "${CYAN}║${NC} [1] Minutos                                                ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} [2] Horas                                                  ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} [3] Días                                                   ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} [4] Meses (30 días)                                        ${CYAN}║${NC}"
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
+            echo -e "${CYAN}${NC} Seleccione la unidad de tiempo:                            ${CYAN}${NC}"
+            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
+            echo -e "${CYAN}${NC} [1] Minutos                                                ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} [2] Horas                                                  ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} [3] Días                                                   ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} [4] Meses (30 días)                                        ${CYAN}${NC}"
+            
             
             read -p "Opción: " unit_opt
             
@@ -235,15 +235,15 @@ while true; do
             obtener_puertos
 
             echo
-            echo -e "${GREEN}✅ Usuario creado exitosamente.${NC}"
             echo
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e         "───────────────────────────────────────────────────────────────"
+            echo -e "${GREEN}✅ Usuario creado exitosamente.${NC}"
             echo -e "${CYAN}${NC}                                                           ${CYAN}${NC}"
             echo -e "${CYAN}${NC} Dominio: $DOMAIN                                          ${CYAN}${NC}"
             echo -e "${CYAN}${NC} Usuario: $username                                         ${CYAN}${NC}"
             echo -e "${CYAN}${NC} Contraseña: $password                                      ${CYAN}${NC}"
             echo -e "${CYAN}${NC} Dispositivos máx: $max_devices                             ${CYAN}${NC}"
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e         "───────────────────────────────────────────────────────────────"
             echo -e "${CYAN}${NC} SSL: $SSL_PORT                                            ${CYAN}${NC}"
             echo -e "${CYAN}${NC} DROPBEAR: $DROPBEAR_PORT                                  ${CYAN}${NC}"
             echo -e "${CYAN}${NC} UDP: $UDP_PORT                                            ${CYAN}${NC}"
@@ -251,11 +251,11 @@ while true; do
             echo -e "${CYAN}${NC} WebSocket: $WEBSOCKET_PORT                                ${CYAN}${NC}"
             echo -e "${CYAN}${NC} V2Ray: $V2RAY_PORT                                        ${CYAN}${NC}"
             echo -e "${CYAN}${NC}                                                           ${CYAN}${NC}"
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e         "───────────────────────────────────────────────────────────────"
             echo
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            
             echo -e "${CYAN}${NC} Expira el: $exp_datetime                                  ${CYAN}${NC}"
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            
             echo
             read -p "ENTER para continuar..."
             ;;
@@ -263,9 +263,9 @@ while true; do
         2)
             clear
             show_header
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
             echo -e "${CYAN}${NC} Eliminar Usuario SSH                                       ${CYAN}${NC}"
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
             echo
             
             users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
