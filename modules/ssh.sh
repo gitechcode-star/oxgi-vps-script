@@ -643,7 +643,7 @@ while true; do
 
                     elif [[ $exp_epoch -le $now_epoch ]]; then
                         status="${RED}Expirado${NC}"
-                        time_left="${RED}Expirado${NC}"
+                        time_left=""
 
                     else
                         status="${GREEN}Activo${NC}"
