@@ -675,7 +675,7 @@ while true; do
                         connection="${GRAY}Offline${NC}"
                     fi
 
-                    printf "%-12s %-10b %-12s %-18b %-18s\n" \
+                    printf "%-12s %-10b %-15s %-18b %-18s\n" \
                     "$user" \
                     "$time_left" \
                     "$status" \
