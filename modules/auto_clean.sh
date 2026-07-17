@@ -1,25 +1,28 @@
 #!/bin/bash
-# Auto-limpieza de usuarios expirados (2 días después)
+DB="/etc/oxgi/ssh_users.db"
+[[ ! -f "$DB" ]] && exit 0
 
-DB_FILE="/etc/oxgi/ssh_users.db"
+now=$(date +%s)
+tmp="${DB}.tmp"
+> "$tmp"
 
-if [[ ! -f "$DB_FILE" ]]; then
-    exit 0
-fi
-
-current_ts=$(date +%s)
-temp_file="${DB_FILE}.tmp"
-
-> "$temp_file"
-
-while IFS='|' read -r user pass devices created expiry auto_delete_ts; do
+while IFS='|' read -r user pass dev created exp auto_del; do
     if [[ -n "$user" ]]; then
-        if [[ "$current_ts" -gt "$auto_delete_ts" ]]; then
+        if [[ $now -gt $auto_del ]]; then
             userdel -r "$user" 2>/dev/null
+            logger "OXGI: Usuario $user eliminado (2 días después de expirar)"
         else
-            echo "${user}|${pass}|${devices}|${created}|${expiry}|${auto_delete_ts}" >> "$temp_file"
+            echo "$user|$pass|$dev|$created|$exp|$auto_del" >> "$tmp"
         fi
     fi
-done < "$DB_FILE"
+done < "$DB"
+mv "$tmp" "$DB"
 
-mv "$temp_file" "$DB_FILE"
+# Auto-Kill Multi Login
+while IFS='|' read -r user pass max_dev created exp auto_del; do
+    sessions=$(who | grep "^$user " | wc -l)
+    if [[ $sessions -gt $max_dev ]]; then
+        pkill -9 -u "$user"
+        logger "OXGI: Auto-kill $user ($sessions sesiones > $max_dev permitidas)"
+    fi
+done < "$DB"
