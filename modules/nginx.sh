@@ -1,49 +1,76 @@
-
 #!/bin/bash
 
-while true
-do
-clear
+if [[ $EUID -ne 0 ]]; then
+   echo -e "\e[31m[ERROR] Requiere root.${NC}\e[0m"
+   exit 1
+fi
 
-echo "══════════════════════════════"
-echo "       NGINX MANAGER"
-echo "══════════════════════════════"
-echo
-echo "[1] Instalar Nginx"
-echo "[2] Reiniciar Nginx"
-echo "[3] Estado Nginx"
-echo
-echo "[0] Regresar"
-echo
+GREEN='\033[1;32m'
+RED='\033[1;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
 
-read -p "Seleccione una opción: " opt
+install_nginx() {
+    clear
+    echo -e "${GREEN}══════════════════════════════════════${NC}"
+    echo -e "      INSTALANDO NGINX"
+    echo -e "${GREEN}══════════════════════════════════════${NC}"
+    
+    apt update -y > /dev/null 2>&1
+    apt install -y nginx > /dev/null 2>&1
+    
+    systemctl enable nginx > /dev/null 2>&1
+    systemctl start nginx
+    
+    if command -v ufw > /dev/null; then
+        ufw allow 'Nginx Full' > /dev/null 2>&1
+    fi
+    
+    echo -e "${GREEN}[OK] Nginx instalado y activo.${NC}"
+    read -p "Presiona ENTER..."
+}
 
-case $opt in
+restart_nginx() {
+    systemctl restart nginx
+    echo -e "${GREEN}[OK] Nginx reiniciado.${NC}"
+    read -p "Presiona ENTER..."
+}
 
-1)
-echo "Instalar Nginx"
-read -p "ENTER..."
-;;
+status_nginx() {
+    clear
+    echo -e "${GREEN}► Estado:$(systemctl is-active nginx > /dev/null && echo -e " ${GREEN}[ACTIVO]${NC}" || echo -e " ${RED}[INACTIVO]${NC}")"
+    echo ""
+    ss -tulpn | grep ':80\|:443'
+    read -p "Presiona ENTER..."
+}
 
-2)
-echo "Reiniciar Nginx"
-read -p "ENTER..."
-;;
+test_config() {
+    echo -e "${YELLOW}[*] Probando configuración...${NC}"
+    nginx -t
+    read -p "Presiona ENTER..."
+}
 
-3)
-echo "Estado Nginx"
-read -p "ENTER..."
-;;
+while true; do
+    clear
+    echo "══════════════════════════════════════"
+    echo -e "        ${GREEN}NGINX MANAGER${NC}"
+    echo "══════════════════════════════════════"
+    echo ""
+    echo -e "  [1] ${GREEN}Instalar Nginx${NC}"
+    echo -e "  [2] ${YELLOW}Reiniciar${NC}"
+    echo -e "  [3] ${YELLOW}Ver Estado${NC}"
+    echo -e "  [4] ${YELLOW}Probar Config${NC}"
+    echo ""
+    echo -e "  [0] ${NC}Regresar"
+    echo "══════════════════════════════════════"
+    read -p "Opción [0-4]: " opt
 
-0)
-break
-;;
-
-*)
-echo "Opción inválida"
-sleep 1
-;;
-
-esac
-
+    case $opt in
+        1) install_nginx ;;
+        2) restart_nginx ;;
+        3) status_nginx ;;
+        4) test_config ;;
+        0) break ;;
+        *) echo -e "${RED}Inválida${NC}"; sleep 1 ;;
+    esac
 done
