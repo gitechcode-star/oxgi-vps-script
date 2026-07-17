@@ -639,30 +639,33 @@ while true; do
                     now_epoch=$(date +%s)
 
                     if [[ "$exp_datetime" == "Nunca" ]]; then
-                        status="${GREEN}Activo${NC}"
+                        status="online"
                         time_left="Nunca"
 
                     elif [[ $exp_epoch -le $now_epoch ]]; then
                         time_left="${RED}Expirado${NC}"
-                        status="${GRAY}Offline${NC}"
+                        status="offline"
 
                     else
-                        status="${GREEN}Activo${NC}"
+                        status="online"
 
                         diff=$((exp_epoch - now_epoch))
 
-                        # Lógica simplificada para mostrar solo la unidad de tiempo mayor
-                        if [[ $diff -ge 86400 ]]; then
+                        # Lógica para mostrar tiempo en formato abreviado
+                        if [[ $diff -ge 2592000 ]]; then
+                            months=$((diff / 2592000))
+                            time_left="${months}ms"
+                        elif [[ $diff -ge 86400 ]]; then
                             days=$((diff / 86400))
-                            [[ $days -eq 1 ]] && time_left="${days} DIA" || time_left="${days} DIAS"
+                            time_left="${days}d"
                         elif [[ $diff -ge 3600 ]]; then
                             hours=$((diff / 3600))
-                            [[ $hours -eq 1 ]] && time_left="${hours} HORA" || time_left="${hours} HORAS"
+                            time_left="${hours}h"
                         elif [[ $diff -ge 60 ]]; then
                             minutes=$((diff / 60))
-                            [[ $minutes -eq 1 ]] && time_left="${minutes} MINUTO" || time_left="${minutes} MINUTOS"
+                            time_left="${minutes}mt"
                         else
-                            [[ $diff -eq 1 ]] && time_left="${diff} SEGUNDO" || time_left="${diff} SEGUNDOS"
+                            time_left="${diff}sg"
                         fi
                     fi
 
@@ -672,7 +675,7 @@ while true; do
                         connection="${GRAY}Offline${NC}"
                     fi
 
-                    printf "%-15s %-15b %-12b %-12b %-15s\n" \
+                    printf "%-15s %-15b %-12s %-12b %-15s\n" \
                     "$user" \
                     "$time_left" \
                     "$status" \
