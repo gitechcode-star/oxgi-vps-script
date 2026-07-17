@@ -1,145 +1,73 @@
 #!/bin/bash
 
-CONFIG="/etc/oxgi/config.conf"
-VERSION_FILE="/etc/oxgi/version.conf"
-AUTOSTART_FILE="/etc/oxgi/autostart.conf"
+# Verificar root
+if [[ $EUID -ne 0 ]]; then
+    echo -e "\e[31m[ERROR] Este script debe ejecutarse como root.\e[0m"
+    exit 1
+fi
 
-[ -f "$CONFIG" ] && source "$CONFIG"
-[ -f "$VERSION_FILE" ] && source "$VERSION_FILE"
-
-source /usr/local/oxgi/modules/color.sh
-source /usr/local/oxgi/modules/header.sh
-
-while true
-do
-
-[ -f "$CONFIG" ] && source "$CONFIG"
-[ -f "$VERSION_FILE" ] && source "$VERSION_FILE"
-
-if [ -f "$AUTOSTART_FILE" ]; then
-    AUTOSTART_STATUS="${GREEN}[Online]${NC}"
+# Cargar configuración de versión
+VERSION_FILE="/usr/local/oxgi/version.conf"
+if [[ -f "$VERSION_FILE" ]]; then
+    source "$VERSION_FILE"
 else
-    AUTOSTART_STATUS="${RED}[Off]${NC}"
+    SCRIPT_NAME="OXGI VPS Script"
+    SCRIPT_VERSION="1.0.0"
+    DEVELOPER="gitechcode-star"
 fi
 
-clear
-show_header
+# Cargar colores (con fallback)
+source /usr/local/oxgi/modules/color.sh 2>/dev/null || {
+    GREEN='\033[1;32m'; RED='\033[1;31m'; YELLOW='\033[1;33m'; CYAN='\033[1;36m'; NC='\033[0m'; BOLD='\033[1m'
+}
 
-printf "${WHITE}%-30s %-30s${NC}\n" \
-"SSH      : $SSH_PORT,$SSH_PORT_ALT" \
-"HTTP     : $HTTP_PORT"
-
-printf "${WHITE}%-30s %-30s${NC}\n" \
-"HTTPS    : $HTTPS_PORT" \
-"WS       : $WS_PORT"
-
-printf "${WHITE}%-30s %-30s${NC}\n" \
-"DROPBEAR : $DROPBEAR_PORT" \
-"BADVPN   : $BADVPN_PORT"
-
-echo
-
-echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}${NC} ${WHITE}[ SSH : ${GREEN}ON${WHITE} ]   [ XRAY : ${GREEN}ON${WHITE} ]   [ NGINX : ${GREEN}ON${WHITE} ]${NC}"
-echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
-
-echo
-
-echo -e "${CYAN}${NC}"
-echo -e "${CYAN}${NC} ${CYAN}[01]${NC} SSH Manager        ${CYAN}[04]${NC} Configuración"
-echo -e "${CYAN}${NC} ${CYAN}[02]${NC} V2Ray Manager      ${CYAN}[05]${NC} Actualizar Script"
-echo -e "${CYAN}${NC} ${CYAN}[03]${NC} Monitor            ${CYAN}[06]${NC} Auto Iniciar ${AUTOSTART_STATUS}"
-echo -e "${CYAN}${NC}"
-
-echo
-
-echo -e "${CYAN}${NC}"
-echo -e "${CYAN}${NC} ${RED}[0]${NC} Exit"
-echo -e "${CYAN}${NC}"
-echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
-echo
-
-read -p "Seleccione una opción: " opt
-
-case $opt in
-
-1|01)
-    bash /usr/local/oxgi/modules/ssh.sh
-    ;;
-
-2|02)
-    bash /usr/local/oxgi/modules/v2ray.sh
-    ;;
-
-3|03)
-    bash /usr/local/oxgi/modules/monitor.sh
-    ;;
-
-4|04)
-    bash /usr/local/oxgi/modules/configuracion.sh
-    ;;
-
-5|05)
-    bash /usr/local/oxgi/modules/updater.sh
-    ;;
-
-6|06)
-
-    if [ -f "$AUTOSTART_FILE" ]; then
-
-        rm -f "$AUTOSTART_FILE"
-
-        sed -i '/# OXGI AUTOSTART START/,/# OXGI AUTOSTART END/d' /root/.bashrc
-
+# Cargar header (con fallback)
+source /usr/local/oxgi/modules/header.sh 2>/dev/null || {
+    show_header() {
         clear
-        echo
-        echo -e "${RED}Auto iniciar desactivado${NC}"
-        echo -e "${WHITE}Ahora será necesario ejecutar:${NC} ${CYAN}oxgi${NC}"
-        echo
-        sleep 2
+        echo -e "${CYAN}╔══════════════════════════════════════════════════╗${NC}"
+        echo -e "${CYAN}║                                                  ║${NC}"
+        echo -e "${CYAN}║      ${GREEN}${BOLD}${SCRIPT_NAME}${NC}${CYAN}                      ║${NC}"
+        echo -e "${CYAN}║      ${YELLOW}Versión: ${SCRIPT_VERSION} | Dev: ${DEVELOPER}${NC}${CYAN}           ║${NC}"
+        echo -e "${CYAN}║                                                  ║${NC}"
+        echo -e "${CYAN}╚══════════════════════════════════════════════════╝${NC}"
+        echo ""
+    }
+}
 
-    else
+MODULES_DIR="/usr/local/oxgi/modules"
 
-        touch "$AUTOSTART_FILE"
+while true; do
+    show_header
+    echo -e "${CYAN}══════════════════════════════════════════════════${NC}"
+    echo -e "  ${GREEN}[1]${NC} Gestión SSH (Usuarios y Conexiones)"
+    echo -e "  ${GREEN}[2]${NC} WebSocket Manager (Nginx + Websockify)"
+    echo -e "  ${GREEN}[3]${NC} V2Ray / Xray Manager"
+    echo -e "  ${GREEN}[4]${NC} BadVPN (UDP Gateway)"
+    echo -e "  ${GREEN}[5]${NC} Dropbear Manager"
+    echo -e "  ${GREEN}[6]${NC} SSL / Certificados (Let's Encrypt)"
+    echo -e "  ${GREEN}[7]${NC} Firewall (UFW)"
+    echo -e "  ${GREEN}[8]${NC} Monitor del Sistema"
+    echo -e "  ${GREEN}[9]${NC} Configuración y Dominios"
+    echo -e "  ${GREEN}[10]${NC} Actualizar Script"
+    echo -e "${CYAN}══════════════════════════════════════════════════${NC}"
+    echo -e "  ${RED}[0]${NC} Salir"
+    echo -e "${CYAN}══════════════════════════════════════════════════${NC}"
+    echo ""
+    read -p "Seleccione una opción [0-10]: " opt
 
-        sed -i '/# OXGI AUTOSTART START/,/# OXGI AUTOSTART END/d' /root/.bashrc
-
-        cat >> /root/.bashrc << 'EOF'
-
-# OXGI AUTOSTART START
-if [ -z "$OXGI_AUTO_STARTED" ]; then
-    export OXGI_AUTO_STARTED=1
-    clear
-    /usr/local/oxgi/oxgi.sh
-fi
-# OXGI AUTOSTART END
-
-EOF
-
-        clear
-        echo
-        echo -e "${GREEN}Auto iniciar activado${NC}"
-        echo -e "${WHITE}El menú OXGI VPS se abrirá automáticamente al iniciar sesión.${NC}"
-        echo
-        sleep 2
-
-    fi
-    ;;
-
-0|00)
-    clear
-    echo
-    echo -e "${GREEN}Gracias por usar OXGI VPS${NC}"
-    echo
-    exit 0
-    ;;
-
-*)
-    echo
-    echo -e "${RED}Opción inválida${NC}"
-    sleep 1
-    ;;
-
-esac
-
+    case $opt in
+        1) bash "$MODULES_DIR/ssh.sh" ;;
+        2) bash "$MODULES_DIR/websocket.sh" ;;
+        3) bash "$MODULES_DIR/v2ray.sh" ;;
+        4) bash "$MODULES_DIR/badvpn.sh" ;;
+        5) bash "$MODULES_DIR/dropbear.sh" ;;
+        6) bash "$MODULES_DIR/ssl.sh" ;;
+        7) bash "$MODULES_DIR/firewall.sh" ;;
+        8) bash "$MODULES_DIR/monitor.sh" ;;
+        9) bash "$MODULES_DIR/configuracion.sh" ;;
+        10) bash "$MODULES_DIR/updater.sh" ;;
+        0) clear; echo -e "${GREEN}¡Gracias por usar ${SCRIPT_NAME} v${SCRIPT_VERSION}!${NC}\n"; exit 0 ;;
+        *) echo -e "${RED}Opción inválida.${NC}"; sleep 1 ;;
+    esac
 done
