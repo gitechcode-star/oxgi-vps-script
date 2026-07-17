@@ -1,20 +1,18 @@
 #!/bin/bash
 
-source /usr/local/oxgi/modules/color.sh
+GREEN='\033[1;32m'
+CYAN='\033[1;36m'
+NC='\033[0m'
 
 show_header() {
-
-CONFIG="/etc/oxgi/config.conf"
-VERSION_FILE="/etc/oxgi/version.conf"
-
-[ -f "$CONFIG" ] && source "$CONFIG"
-[ -f "$VERSION_FILE" ] && source "$VERSION_FILE"
-
-clear
-
-echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║${WHITE}      ${APP_NAME} - Versión ${VERSION} - ${AUTHOR}${CYAN}║${NC}"
-echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
-echo
-
+    clear
+    echo -e "${CYAN}╔══════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${NC}                                  ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC}      ${GREEN}OXGI VPS SCRIPT${NC}               ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC}      ${GREEN}Panel de Control${NC}                ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC}                                  ${CYAN}║${NC}"
+    echo -e "${CYAN}╚══════════════════════════════════════╝${NC}"
+    echo ""
 }
+
+# Ejemplo de uso: source header.sh && show_header
