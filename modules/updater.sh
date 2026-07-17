@@ -1,46 +1,61 @@
 #!/bin/bash
 
-REPO_DIR="/usr/local/oxgi"
+GREEN='\033[1;32m'
+RED='\033[1;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
 
-clear
+SCRIPT_DIR="/usr/local/oxgi"
 
-echo "══════════════════════════════════════"
-echo "          OXGI UPDATER"
-echo "══════════════════════════════════════"
-echo
+update_script() {
+    clear
+    echo -e "${GREEN}══════════════════════════════════════${NC}"
+    echo -e "      ACTUALIZANDO OXGI-VPS-SCRIPT"
+    echo -e "${GREEN}══════════════════════════════════════${NC}"
+    
+    if [[ ! -d $SCRIPT_DIR ]]; then
+        echo -e "${RED}[!] Directorio no encontrado${NC}"
+        read -p "ENTER..."
+        return 1
+    fi
+    
+    cd $SCRIPT_DIR
+    git pull origin main
+    
+    if [[ $? -eq 0 ]]; then
+        echo -e "${GREEN}[OK] Script actualizado${NC}"
+        echo -e "${YELLOW}Reinicie el script para aplicar cambios${NC}"
+    else
+        echo -e "${RED}[!] Error al actualizar${NC}"
+    fi
+    
+    read -p "ENTER..."
+}
 
-cd "$REPO_DIR" || exit 1
+check_version() {
+    if [[ -f $SCRIPT_DIR/version.conf ]]; then
+        cat $SCRIPT_DIR/version.conf
+    else
+        echo "Versión: desconocida"
+    fi
+    read -p "ENTER..."
+}
 
-echo "[+] Buscando actualizaciones..."
-echo
-
-git fetch origin
-
-LOCAL=$(git rev-parse HEAD)
-REMOTE=$(git rev-parse origin/main)
-
-if [ "$LOCAL" = "$REMOTE" ]; then
-    echo "[✓] Ya tienes la última versión."
-    echo
-    read -p "ENTER para continuar..."
-    exit 0
-fi
-
-echo "[+] Aplicando cambios..."
-echo
-
-git reset --hard origin/main
-git clean -fd
-
-chmod +x oxgi.sh
-chmod +x modules/*.sh
-
-CURRENT=$(git rev-parse --short HEAD)
-
-echo
-echo "[✓] Script actualizado correctamente"
-echo
-echo "Commit actual: $CURRENT"
-echo
-
-read -p "ENTER para continuar..."
+while true; do
+    clear
+    echo "════════════════════════════"
+    echo -e "  ${GREEN}ACTUALIZADOR${NC}"
+    echo "════════════════════════════"
+    echo "  [1] Actualizar Script"
+    echo "  [2] Ver Versión"
+    echo "  [0] Salir"
+    echo "════════════════════════════"
+    read -p "Opción: " opt
+    
+    case $opt in
+        1) update_script ;;
+        2) check_version ;;
+        0) break ;;
+        *) echo -e "${RED}Inválida${NC}"; sleep 1 ;;
+    esac
+done
