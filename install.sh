@@ -1,6 +1,6 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════
-# OXGI VPS SCRIPT - Instalador Profesional (Nivel Blueblue)
+# OXGI VPS SCRIPT - Instalador Profesional (100% Feature Match)
 # ═══════════════════════════════════════════════════════════════
 
 export DEBIAN_FRONTEND=noninteractive
@@ -10,89 +10,69 @@ echo -e "${CYAN}╔════════════════════�
 echo -e "${CYAN}║      ${GREEN}OXGI VPS - INSTALACIÓN PROFESIONAL${NC}${CYAN}      ║${NC}"
 echo -e "${CYAN}╚══════════════════════════════════════════════════╝${NC}"
 
-# 1. Actualización y Dependencias
-echo -e "${YELLOW}[1/6] Actualizando sistema e instalando dependencias...${NC}"
+# 1. Zona Horaria y Actualización
+echo -e "${YELLOW}[1/7] Configurando Zona Horaria y Actualizando...${NC}"
+timedatectl set-timezone Asia/Kuala_Lumpur
 apt update -y && apt upgrade -y
-apt install -y curl wget sudo cron ufw nginx python3 jq bc \
+apt install -y curl wget sudo cron ufw nginx python3 jq bc stunnel4 \
     build-essential cmake openssl libssl-dev websockify dropbear \
     fail2ban vnstat unzip git
 
-# 2. Optimización de Red Extrema (Velocidad "Super Rápida")
-echo -e "${YELLOW}[2/6] Optimizando red (BBR + TCP Tuning)...${NC}"
+# 2. Fail2Ban & Deflate (Nginx Gzip)
+echo -e "${YELLOW}[2/7] Configurando Fail2Ban y Nginx Deflate...${NC}"
+cat > /etc/fail2ban/jail.local << 'EOF'
+[DEFAULT]
+bantime = 3600
+findtime = 600
+maxretry = 5
+[sshd]
+enabled = true
+port = 22,109,143
+EOF
+systemctl enable --now fail2ban
+
+# 3. Optimización de Red (BBR + TCP Tuning)
+echo -e "${YELLOW}[3/7] Optimizando red (BBR + TCP Fast Open)...${NC}"
 echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
 echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
 echo "net.ipv4.tcp_fastopen=3" >> /etc/sysctl.conf
 echo "net.ipv4.tcp_window_scaling=1" >> /etc/sysctl.conf
 echo "net.core.rmem_max=16777216" >> /etc/sysctl.conf
 echo "net.core.wmem_max=16777216" >> /etc/sysctl.conf
-echo "net.ipv4.tcp_rmem=4096 87380 16777216" >> /etc/sysctl.conf
-echo "net.ipv4.tcp_wmem=4096 65536 16777216" >> /etc/sysctl.conf
 sysctl -p > /dev/null 2>&1
 
-# 3. Firewall
-echo -e "${YELLOW}[3/6] Configurando Firewall (UFW)...${NC}"
+# 4. Firewall (IPtables/UFW)
+echo -e "${YELLOW}[4/7] Configurando Firewall (UFW/IPtables)...${NC}"
 ufw --force reset
 ufw allow 22/tcp; ufw allow 80/tcp; ufw allow 443/tcp
-ufw allow 444/tcp; ufw allow 109/tcp; ufw allow 143/tcp
+ufw allow 447/tcp; ufw allow 777/tcp
+ufw allow 109/tcp; ufw allow 143/tcp
 ufw allow 7100:7300/udp; ufw allow 81/tcp
 echo "y" | ufw enable > /dev/null 2>&1
 
-# 4. Configuración Nginx + Websockify (SSH WS 80/443)
-echo -e "${YELLOW}[4/6] Configurando WebSocket SSH (Puertos 80/443)...${NC}"
-rm -f /etc/nginx/sites-enabled/default
-mkdir -p /etc/nginx/ssl
-openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
-    -keyout /etc/nginx/ssl/oxgi.key -out /etc/nginx/ssl/oxgi.crt \
-    -subj "/C=MY/ST=State/L=City/O=OXGI/CN=oxgi.local" > /dev/null 2>&1
-
-cat > /etc/nginx/sites-available/oxgi-ws << 'EOF'
-# HTTP (Non-TLS)
-server {
-    listen 80;
-    server_name _;
-    location / {
-        proxy_pass http://127.0.0.1:2090;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "Upgrade";
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-# HTTPS (TLS)
-server {
-    listen 443 ssl http2;
-    server_name _;
-    ssl_certificate /etc/nginx/ssl/oxgi.crt;
-    ssl_certificate_key /etc/nginx/ssl/oxgi.key;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    location / {
-        proxy_pass http://127.0.0.1:2090;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "Upgrade";
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
+# 5. Stunnel4 (Puertos 447, 777)
+echo -e "${YELLOW}[5/7] Configurando Stunnel4 (447, 777)...${NC}"
+mkdir -p /etc/stunnel
+cat > /etc/stunnel/stunnel.conf << 'EOF'
+cert = /etc/stunnel/stunnel.pem
+sslVersion = TLSv1.2
+options = NO_SSLv2
+options = NO_SSLv3
+[openssh]
+accept = 447
+connect = 127.0.0.1:22
+[dropbear]
+accept = 777
+connect = 127.0.0.1:109
 EOF
-ln -sf /etc/nginx/sites-available/oxgi-ws /etc/nginx/sites-enabled/
+openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
+    -subj "/C=MY/ST=State/L=City/O=OXGI/CN=oxgi.local" \
+    -keyout /etc/stunnel/stunnel.pem -out /etc/stunnel/stunnel.pem > /dev/null 2>&1
+sed -i 's/ENABLED=0/ENABLED=1/' /etc/default/stunnel4
+systemctl enable --now stunnel4
 
-cat > /etc/systemd/system/websockify.service << 'EOF'
-[Unit]
-Description=Websockify SSH Bridge
-After=network.target
-[Service]
-Type=simple
-ExecStart=/usr/bin/websockify 2090 127.0.0.1:22
-Restart=on-failure
-[Install]
-WantedBy=multi-user.target
-EOF
-systemctl daemon-reload && systemctl enable --now websockify nginx
-
-# 5. Dropbear & BadVPN
-echo -e "${YELLOW}[5/6] Configurando Dropbear y BadVPN...${NC}"
+# 6. Dropbear & BadVPN (7100, 7200, 7300)
+echo -e "${YELLOW}[6/7] Configurando Dropbear y BadVPN...${NC}"
 sed -i 's/NO_START=1/NO_START=0/' /etc/default/dropbear
 sed -i 's/DROPBEAR_PORT=22/DROPBEAR_PORT=109/' /etc/default/dropbear
 echo "DROPBEAR_EXTRA_ARGS=\"-p 143 -w -s -j -k\"" >> /etc/default/dropbear
@@ -104,27 +84,80 @@ mkdir build && cd build
 cmake .. -DBUILD_NOTHING_BY_DEFAULT=ON -DBUILD_UDPGW=ON > /dev/null 2>&1
 make > /dev/null 2>&1
 cp udpgw/badvpn-udpgw /usr/bin/
-cat > /etc/systemd/system/badvpn.service << 'EOF'
-[Unit]
-Description=BadVPN UDPGW
-After=network.target
+
+# BadVPN en 3 puertos
+cat > /etc/systemd/system/badvpn-7100.service << 'EOF'
 [Service]
-ExecStart=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7300 --max-clients 1000
+ExecStart=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7100 --max-clients 1000
+[Install]
+WantedBy=multi-user.target
+EOF
+cp /etc/systemd/system/badvpn-7100.service /etc/systemd/system/badvpn-7200.service
+sed -i 's/7100/7200/' /etc/systemd/system/badvpn-7200.service
+cp /etc/systemd/system/badvpn-7100.service /etc/systemd/system/badvpn-7300.service
+sed -i 's/7100/7300/' /etc/systemd/system/badvpn-7300.service
+
+systemctl daemon-reload
+systemctl enable --now badvpn-7100 badvpn-7200 badvpn-7300
+
+# 7. Nginx (WS 80/443) + Descarga del Script
+echo -e "${YELLOW}[7/7] Configurando Nginx WebSocket y Panel OXGI...${NC}"
+rm -f /etc/nginx/sites-enabled/default
+mkdir -p /etc/nginx/ssl
+openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+    -keyout /etc/nginx/ssl/oxgi.key -out /etc/nginx/ssl/oxgi.crt \
+    -subj "/C=MY/ST=State/L=City/O=OXGI/CN=oxgi.local" > /dev/null 2>&1
+
+cat > /etc/nginx/sites-available/oxgi-ws << 'EOF'
+# Deflate / Gzip ON
+gzip on;
+gzip_types text/plain application/json application/javascript text/css;
+
+server {
+    listen 80;
+    server_name _;
+    location / {
+        proxy_pass http://127.0.0.1:2090;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+    }
+}
+server {
+    listen 443 ssl http2;
+    server_name _;
+    ssl_certificate /etc/nginx/ssl/oxgi.crt;
+    ssl_certificate_key /etc/nginx/ssl/oxgi.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    location / {
+        proxy_pass http://127.0.0.1:2090;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+    }
+}
+EOF
+ln -sf /etc/nginx/sites-available/oxgi-ws /etc/nginx/sites-enabled/
+
+cat > /etc/systemd/system/websockify.service << 'EOF'
+[Unit]
+Description=Websockify SSH Bridge
+[Service]
+ExecStart=/usr/bin/websockify 2090 127.0.0.1:22
 Restart=on-failure
 [Install]
 WantedBy=multi-user.target
 EOF
-systemctl daemon-reload && systemctl enable --now badvpn
+systemctl daemon-reload && systemctl enable --now websockify nginx
 
-# 6. Descargar Script y Automatización (Cron)
-echo -e "${YELLOW}[6/6] Instalando Panel OXGI y Automatización...${NC}"
+# Descarga del Panel y Cron Jobs
 INSTALL_DIR="/usr/local/oxgi"
 mkdir -p $INSTALL_DIR /etc/oxgi
 git clone -b main https://github.com/gitechcode-star/oxgi-vps-script.git $INSTALL_DIR > /dev/null 2>&1
 chmod +x $INSTALL_DIR/*.sh $INSTALL_DIR/modules/*.sh
 ln -sf $INSTALL_DIR/oxgi.sh /usr/local/bin/oxgi
 
-# Cron Jobs (Auto Reboot 5AM, Auto Clear Log, Auto Delete Expired)
+# Automatización (Reboot 5AM, Limpieza Logs, Auto-Delete)
 (crontab -l 2>/dev/null; echo "0 5 * * * /sbin/reboot") | crontab -
 (crontab -l 2>/dev/null; echo "0 0 * * * find /var/log -type f -name '*.log' -exec truncate -s 0 {} \;") | crontab -
 (crontab -l 2>/dev/null; echo "0 * * * * /usr/local/oxgi/modules/auto_clean.sh") | crontab -
@@ -133,7 +166,7 @@ clear
 echo -e "${GREEN}╔══════════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║        ¡INSTALACIÓN COMPLETADA EXITOSAMENTE!     ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════════╝${NC}"
-echo -e "${CYAN}• SSH WS (80/443) | Dropbear (109/143) | BadVPN (7300)${NC}"
-echo -e "${CYAN}• Optimización de red BBR + TCP Fast Open ACTIVADA${NC}"
-echo -e "${CYAN}• Auto-Reboot (5:00 AM) y Limpieza de Logs ACTIVADA${NC}"
+echo -e "${CYAN}• SSH WS (80/443) | Stunnel (447/777) | Dropbear (109/143)${NC}"
+echo -e "${CYAN}• BadVPN (7100/7200/7300) | Fail2Ban [ON] | Deflate [ON]${NC}"
+echo -e "${CYAN}• Timezone: Asia/Kuala_Lumpur | Auto-Reboot: 5:00 AM${NC}"
 echo -e "${GREEN}Escribe ${YELLOW}oxgi${GREEN} para comenzar.${NC}"
