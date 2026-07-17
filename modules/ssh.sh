@@ -130,89 +130,94 @@ obtener_puertos() {
     fi
 }
 
-# Función para crear usuarios V2Ray con protocolo específico
-crear_usuario_v2ray() {
-    local protocol_type="$1"
-    clear
-    show_header
-    echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║ Crear Usuario V2Ray ($protocol_type)                           ║${NC}"
-    echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
-    echo
-    
-    read -p "Nombre de usuario: " username
-    validar_usuario "$username" || { read -p "ENTER para continuar..."; return; }
-    
-    if grep -q "^${username}:" "$V2RAY_DB" 2>/dev/null; then
-        echo -e "${RED}Error: El usuario V2Ray '$username' ya existe.${NC}"
-        read -p "ENTER para continuar..."
-        return
+# Función para mostrar lista unificada de usuarios (SSH + V2Ray)
+mostrar_lista_unificada() {
+    local combined_list=()
+    local user_types=()
+    local exp_epochs=()
+    local exp_datetimes=()
+
+    # Usuarios SSH
+    local users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
+    for user in $users_list; do
+        combined_list+=("$user")
+        user_types+=("SSH")
+        local db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
+        if [[ -n "$db_entry" ]]; then
+            exp_epochs+=($(echo "$db_entry" | cut -d':' -f2))
+            exp_datetimes+=("$(echo "$db_entry" | cut -d':' -f3- | cut -d' ' -f1,2)")
+        else
+            local exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
+            if [[ "$exp_info" != "never" ]]; then
+                exp_epochs+=($(date -d "$exp_info" +%s 2>/dev/null))
+                exp_datetimes+=("$exp_info")
+            else
+                exp_epochs+=(9999999999)
+                exp_datetimes+=("Nunca")
+            fi
+        fi
+    done
+
+    # Usuarios V2Ray
+    if [[ -f "$V2RAY_DB" ]]; then
+        while IFS=: read -r v_user v_uuid v_exp v_date v_traffic; do
+            if [[ -n "$v_user" ]]; then
+                combined_list+=("$v_user")
+                user_types+=("V2Ray")
+                exp_epochs+=("$v_exp")
+                exp_datetimes+=("$v_date")
+            fi
+        done < "$V2RAY_DB"
     fi
 
-    uuid=$(cat /proc/sys/kernel/random/uuid)
-    echo "UUID generado: $uuid"
-
-    echo
-    echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║ Seleccione la unidad de tiempo:                              ║${NC}"
-    echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
-    echo -e "${CYAN}║ [1] Minutos                                                  ║${NC}"
-    echo -e "${CYAN}║ [2] Horas                                                    ║${NC}"
-    echo -e "${CYAN}║ [3] Días                                                     ║${NC}"
-    echo -e "${CYAN}║ [4] Meses (30 días)                                          ║${NC}"
-    
-    read -p "Opción: " unit_opt
-    
-    case $unit_opt in
-        1) unit_str="minutes" ;;
-        2) unit_str="hours" ;;
-        3) unit_str="days" ;;
-        4) unit_str="days" ;;
-        *) 
-            echo -e "${RED}Opción inválida.${NC}"
-            read -p "ENTER para continuar..."
-            return 
-            ;;
-    esac
-
-    read -p "Cantidad: " time_qty
-    validar_numero "$time_qty" || { read -p "ENTER para continuar..."; return; }
-
-    if [[ "$unit_opt" == "4" ]]; then
-        time_qty=$((time_qty * 30))
+    if [[ ${#combined_list[@]} -eq 0 ]]; then
+        echo -e "${RED}No hay usuarios registrados en el sistema.${NC}"
+        return 1
     fi
 
-    exp_datetime=$(date -d "+$time_qty $unit_str" "+%Y-%m-%d %H:%M:%S")
-    exp_epoch=$(date -d "+$time_qty $unit_str" +%s)
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    printf "${CYAN} %-5s %-15s %-10s %-24s %-15s ${NC}\n" "N°" "Usuario" "Tipo" "Expiración" "Estado"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    
+    local now_epoch=$(date +%s)
+    for i in "${!combined_list[@]}"; do
+        local user="${combined_list[$i]}"
+        local type="${user_types[$i]}"
+        local exp_epoch="${exp_epochs[$i]}"
+        local exp_date="${exp_datetimes[$i]}"
 
-    # Formato: usuario:uuid:protocolo:exp_epoch:exp_datetime:traffic
-    echo "${username}:${uuid}:${protocol_type}:${exp_epoch}:${exp_datetime}:0" >> "$V2RAY_DB"
+        local status=""
+        if [[ "$exp_date" == "Nunca" ]]; then
+            status="${GREEN}Activo${NC}"
+        elif [[ "$exp_epoch" -le "$now_epoch" ]]; then
+            status="${RED}Expirado${NC}"
+        else
+            status="${GREEN}Activo${NC}"
+        fi
 
-    echo
-    echo -e "${GREEN}✅ Usuario V2Ray '$username' ($protocol_type) creado exitosamente.${NC}"
-    echo "UUID: $uuid"
-    echo "Expira el: $exp_datetime"
-    echo
-    read -p "ENTER para continuar..."
+        printf "${CYAN} %-5s %-15s %-10s %-24s %-15b ${NC}\n" "$((i+1))" "$user" "$type" "$exp_date" "$status"
+    done
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    
+    # Exportar arrays para usar en las opciones de eliminar/renovar
+    export COMBINED_LIST=("${combined_list[@]}")
+    export USER_TYPES=("${user_types[@]}")
+    export EXP_EPOCHS=("${exp_epochs[@]}")
+    export EXP_DATETIMES=("${exp_datetimes[@]}")
+    return 0
 }
 
 while true; do
     clear
     show_header
-    echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║                          USER MANAGER                        ║${NC}"
-    echo -e "${CYAN}╠════════════════════════════════════╦═════════════════════════╣${NC}"
-    echo -e "${CYAN}║${NC} SSH MANAGER                        ${CYAN}║${NC} XRAY / V2RAY MANAGER                  ${CYAN}║${NC}"
-    echo -e "${CYAN}║${NC} [01] Crear Usuario SSH             ${CYAN}║${NC} [05] Crear Usuario xray / v2ray       ${CYAN}║${NC}"
-    echo -e "${CYAN}║${NC} [02] Eliminar Usuario SSH          ${CYAN}║${NC} [13] Renovar Usuario V2Ray          ${CYAN}║${NC}"
-    echo -e "${CYAN}║${NC} [03] Renovar Usuario SSH           ${CYAN}║${NC} [14] Eliminar Usuario V2Ray         ${CYAN}║${NC}"
-    echo -e "${CYAN}║${NC} [04] Cambiar Contraseña SSH        ${CYAN}║${NC} [15] Lista de Usuarios V2Ray        ${CYAN}║${NC}"
-    echo -e "${CYAN}║${NC} [05] Lista de Usuarios SSH         ${CYAN}║${NC} [16] Usuarios Online V2Ray          ${CYAN}║${NC}"
-    echo -e "${CYAN}║${NC} [06] Usuarios Online SSH           ${CYAN}║${NC}                                    ${CYAN}║${NC}"
-    echo -e "${CYAN}║${NC} [07] Eliminar Expirados            ${CYAN}║${NC}                                    ${CYAN}║${NC}"
-    echo -e "${CYAN}╠════════════════════════════════════════╩═════════════════════════╣${NC}"
-    echo -e "${CYAN}║${NC} [00] Regresar                                                ${CYAN}║${NC}"
-    echo -e "${CYAN}╚══════════════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${CYAN}[01]${NC} Crear Usuario SSH        ${CYAN}[05]${NC} Crear Usuario V2Ray"
+    echo -e "${CYAN}[02]${NC} Eliminar Usuario         ${CYAN}[06]${NC} Cambiar Contraseña"
+    echo -e "${CYAN}[03]${NC} Renovar Usuario          ${CYAN}[07]${NC} Configuración"
+    echo -e "${CYAN}[04]${NC} Ver Usuarios Online      ${CYAN}[08]${NC} Eliminar Expirados"
+    echo
+    echo -e "${RED}[00]${NC} Regresar"
+    echo
+    echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
     echo
 
     read -p "Seleccione una opción: " opt
@@ -222,7 +227,7 @@ while true; do
             clear
             show_header
             echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-            echo -e "${CYAN}║ Crear Usuario SSH                                            ║${NC}"
+            echo -e "${CYAN}${NC} Crear Usuario SSH                                         ${CYAN}${NC}"
             echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
             echo
             
@@ -243,12 +248,12 @@ while true; do
 
             echo
             echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-            echo -e "${CYAN}║ Seleccione la unidad de tiempo:                              ║${NC}"
+            echo -e "${CYAN}${NC} Seleccione la unidad de tiempo:                            ${CYAN}${NC}"
             echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
-            echo -e "${CYAN}║ [1] Minutos                                                  ║${NC}"
-            echo -e "${CYAN}║ [2] Horas                                                    ║${NC}"
-            echo -e "${CYAN}║ [3] Días                                                     ║${NC}"
-            echo -e "${CYAN}║ [4] Meses (30 días)                                          ║${NC}"
+            echo -e "${CYAN}${NC} [1] Minutos                                                ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} [2] Horas                                                  ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} [3] Días                                                   ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} [4] Meses (30 días)                                        ${CYAN}${NC}"
             
             read -p "Opción: " unit_opt
             
@@ -306,23 +311,87 @@ while true; do
             echo
             echo -e         "───────────────────────────────────────────────────────────────"
             echo -e "${GREEN}✅ Usuario creado exitosamente.${NC}"
-            echo -e "${CYAN}║${NC} Dominio: $DOMAIN                                          ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} Usuario: $username                                         ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} Contraseña: $password                                      ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} Dispositivos máx: $max_devices                             ${CYAN}║${NC}"
+            echo -e "${CYAN}${NC}                                                           ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} Dominio: $DOMAIN                                          ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} Usuario: $username                                         ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} Contraseña: $password                                      ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} Dispositivos máx: $max_devices                             ${CYAN}${NC}"
             echo -e         "───────────────────────────────────────────────────────────────"
-            echo -e "${CYAN}║${NC} SSL: $SSL_PORT                                            ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} DROPBEAR: $DROPBEAR_PORT                                  ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} UDP: $UDP_PORT                                            ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} OpenSSH: $OPENSSH_PORT                                    ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} WebSocket: $WEBSOCKET_PORT                                ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC} V2Ray: $V2RAY_PORT                                        ${CYAN}║${NC}"
-            echo -e "${CYAN}║${NC}                                                           ${CYAN}║${NC}"
+            echo -e "${CYAN}${NC} SSL: $SSL_PORT                                            ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} DROPBEAR: $DROPBEAR_PORT                                  ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} UDP: $UDP_PORT                                            ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} OpenSSH: $OPENSSH_PORT                                    ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} WebSocket: $WEBSOCKET_PORT                                ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} V2Ray: $V2RAY_PORT                                        ${CYAN}${NC}"
+            echo -e "${CYAN}${NC}                                                           ${CYAN}${NC}"
             echo -e         "───────────────────────────────────────────────────────────────"
             echo
             
-            echo -e "${CYAN}║${NC} Expira el: $exp_datetime                                  ${CYAN}║${NC}"
+            echo -e "${CYAN}${NC} Expira el: $exp_datetime                                  ${CYAN}${NC}"
             
+            echo
+            read -p "ENTER para continuar..."
+            ;;
+
+        5)
+            clear
+            show_header
+            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
+            echo -e "${CYAN}${NC} Crear Usuario V2Ray                                        ${CYAN}${NC}"
+            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
+            echo
+            
+            read -p "Nombre de usuario: " username
+            validar_usuario "$username" || { read -p "ENTER para continuar..."; continue; }
+            
+            if grep -q "^${username}:" "$V2RAY_DB" 2>/dev/null; then
+                echo -e "${RED}Error: El usuario V2Ray '$username' ya existe.${NC}"
+                read -p "ENTER para continuar..."
+                continue
+            fi
+
+            uuid=$(cat /proc/sys/kernel/random/uuid)
+            echo "UUID generado: $uuid"
+
+            echo
+            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
+            echo -e "${CYAN}${NC} Seleccione la unidad de tiempo:                            ${CYAN}${NC}"
+            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
+            echo -e "${CYAN}${NC} [1] Minutos                                                ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} [2] Horas                                                  ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} [3] Días                                                   ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} [4] Meses (30 días)                                        ${CYAN}${NC}"
+            
+            read -p "Opción: " unit_opt
+            
+            case $unit_opt in
+                1) unit_str="minutes" ;;
+                2) unit_str="hours" ;;
+                3) unit_str="days" ;;
+                4) unit_str="days" ;;
+                *) 
+                    echo -e "${RED}Opción inválida.${NC}"
+                    read -p "ENTER para continuar..."
+                    continue 
+                    ;;
+            esac
+
+            read -p "Cantidad: " time_qty
+            validar_numero "$time_qty" || { read -p "ENTER para continuar..."; continue; }
+
+            if [[ "$unit_opt" == "4" ]]; then
+                time_qty=$((time_qty * 30))
+            fi
+
+            exp_datetime=$(date -d "+$time_qty $unit_str" "+%Y-%m-%d %H:%M:%S")
+            exp_epoch=$(date -d "+$time_qty $unit_str" +%s)
+
+            echo "${username}:${uuid}:${exp_epoch}:${exp_datetime}:0" >> "$V2RAY_DB"
+
+            echo
+            echo -e "${GREEN}✅ Usuario V2Ray '$username' creado exitosamente.${NC}"
+            echo "UUID: $uuid"
+            echo "Expira el: $exp_datetime"
             echo
             read -p "ENTER para continuar..."
             ;;
@@ -331,62 +400,21 @@ while true; do
             clear
             show_header
             echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-            echo -e "${CYAN}║ Eliminar Usuario SSH                                         ║${NC}"
+            echo -e "${CYAN}${NC} Eliminar Usuario                                           ${CYAN}${NC}"
             echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
             echo
             
-            users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
-            
-            if [[ -z "$users_list" ]]; then
-                echo -e "${RED}No hay usuarios registrados en el sistema.${NC}"
-                read -p "ENTER para continuar..."
-                continue
-            fi
-
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            printf "${CYAN} %-5s %-15s %-24s %-10s ${NC}\n" "N°" "Usuario" "Expiración" "Estado"
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            
-            i=1
-            declare -a user_array=()
-            for user in $users_list; do
-                user_array+=("$user")
-                db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
-                if [[ -n "$db_entry" ]]; then
-                    exp_epoch=$(echo "$db_entry" | cut -d':' -f2)
-                    exp_info=$(echo "$db_entry" | cut -d':' -f3- | cut -d' ' -f1,2)
-                else
-                    exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
-                    if [[ "$exp_info" != "never" ]]; then
-                        exp_epoch=$(date -d "$exp_info" +%s 2>/dev/null)
-                    else
-                        exp_epoch=9999999999
-                        exp_info="Nunca"
-                    fi
-                fi
-                
-                now_epoch=$(date +%s)
-                if [[ "$exp_info" == "Nunca" ]]; then
-                    status="${GREEN}Activo${NC}"
-                elif [[ $exp_epoch -lt $now_epoch ]]; then
-                    status="${RED}Expirado${NC}"
-                else
-                    status="${GREEN}Activo${NC}"
-                fi
-                
-                printf "${CYAN} %-5s %-15s %-24s %-10b ${NC}\n" "$i" "$user" "$exp_info" "$status"
-                ((i++))
-            done
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            mostrar_lista_unificada || { read -p "ENTER para continuar..."; continue; }
             echo
             
             read -p "Ingrese el/los número(s) de usuario a eliminar (ej: 1 o 1,2,3): " selection
+            
             IFS=',' read -ra selected_indices <<< "$selection"
             
             valid_selection=true
             for idx in "${selected_indices[@]}"; do
                 idx=$(echo "$idx" | tr -d ' ')
-                if ! [[ "$idx" =~ ^[0-9]+$ ]] || [[ "$idx" -lt 1 ]] || [[ "$idx" -gt "${#user_array[@]}" ]]; then
+                if ! [[ "$idx" =~ ^[0-9]+$ ]] || [[ "$idx" -lt 1 ]] || [[ "$idx" -gt "${#COMBINED_LIST[@]}" ]]; then
                     valid_selection=false
                     break
                 fi
@@ -405,15 +433,24 @@ while true; do
             if [[ "$confirm" =~ ^[Ss]$ ]]; then
                 for idx in "${selected_indices[@]}"; do
                     idx=$(echo "$idx" | tr -d ' ')
-                    username="${user_array[$((idx-1))]}"
+                    username="${COMBINED_LIST[$((idx-1))]}"
+                    type="${USER_TYPES[$((idx-1))]}"
                     
-                    userdel "$username" 2>/dev/null
-                    if [[ -f "$DB_FILE" ]]; then
-                        temp_file=$(mktemp)
-                        grep -v "^${username}:" "$DB_FILE" > "$temp_file" 2>/dev/null || true
-                        mv "$temp_file" "$DB_FILE"
+                    if [[ "$type" == "SSH" ]]; then
+                        userdel "$username" 2>/dev/null
+                        if [[ -f "$DB_FILE" ]]; then
+                            temp_file=$(mktemp)
+                            grep -v "^${username}:" "$DB_FILE" > "$temp_file" 2>/dev/null || true
+                            mv "$temp_file" "$DB_FILE"
+                        fi
+                    elif [[ "$type" == "V2Ray" ]]; then
+                        if [[ -f "$V2RAY_DB" ]]; then
+                            temp_file=$(mktemp)
+                            grep -v "^${username}:" "$V2RAY_DB" > "$temp_file" 2>/dev/null || true
+                            mv "$temp_file" "$V2RAY_DB"
+                        fi
                     fi
-                    echo -e "${GREEN}✅ Usuario SSH '$username' eliminado correctamente.${NC}"
+                    echo -e "${GREEN}✅ Usuario '$username' ($type) eliminado correctamente.${NC}"
                 done
             else
                 echo -e "${YELLOW}Operación cancelada.${NC}"
@@ -425,63 +462,22 @@ while true; do
         3)
             clear
             show_header
-            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-            echo -e "${CYAN}║ Renovar Usuario SSH                                          ║${NC}"
-            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN} ${NC} Renovar Usuario                                            ${CYAN} ${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             echo
             
-            users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
-            
-            if [[ -z "$users_list" ]]; then
-                echo -e "${RED}No hay usuarios registrados en el sistema.${NC}"
-                read -p "ENTER para continuar..."
-                continue
-            fi
-
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            printf "${CYAN} %-5s %-15s %-24s %-10s ${NC}\n" "N°" "Usuario" "Expiración" "Estado"
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            
-            i=1
-            declare -a user_array=()
-            for user in $users_list; do
-                user_array+=("$user")
-                db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
-                if [[ -n "$db_entry" ]]; then
-                    exp_epoch=$(echo "$db_entry" | cut -d':' -f2)
-                    exp_info=$(echo "$db_entry" | cut -d':' -f3- | cut -d' ' -f1,2)
-                else
-                    exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
-                    if [[ "$exp_info" != "never" ]]; then
-                        exp_epoch=$(date -d "$exp_info" +%s 2>/dev/null)
-                    else
-                        exp_epoch=9999999999
-                        exp_info="Nunca"
-                    fi
-                fi
-                
-                now_epoch=$(date +%s)
-                if [[ "$exp_info" == "Nunca" ]]; then
-                    status="${GREEN}Activo${NC}"
-                elif [[ $exp_epoch -lt $now_epoch ]]; then
-                    status="${RED}Expirado${NC}"
-                else
-                    status="${GREEN}Activo${NC}"
-                fi
-                
-                printf "${CYAN} %-5s %-15s %-24s %-10b ${NC}\n" "$i" "$user" "$exp_info" "$status"
-                ((i++))
-            done
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            mostrar_lista_unificada || { read -p "ENTER para continuar..."; continue; }
             echo
             
             read -p "Ingrese el/los número(s) de usuario a renovar (ej: 1 o 1,2,3): " selection
+            
             IFS=',' read -ra selected_indices <<< "$selection"
             
             valid_selection=true
             for idx in "${selected_indices[@]}"; do
                 idx=$(echo "$idx" | tr -d ' ')
-                if ! [[ "$idx" =~ ^[0-9]+$ ]] || [[ "$idx" -lt 1 ]] || [[ "$idx" -gt "${#user_array[@]}" ]]; then
+                if ! [[ "$idx" =~ ^[0-9]+$ ]] || [[ "$idx" -lt 1 ]] || [[ "$idx" -gt "${#COMBINED_LIST[@]}" ]]; then
                     valid_selection=false
                     break
                 fi
@@ -495,12 +491,12 @@ while true; do
 
             echo
             echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-            echo -e "${CYAN}║ Seleccione la unidad de tiempo:                              ║${NC}"
+            echo -e "${CYAN}${NC} Seleccione la unidad de tiempo:                            ${CYAN}${NC}"
             echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
-            echo -e "${CYAN}║ [1] Minutos                                                  ║${NC}"
-            echo -e "${CYAN}║ [2] Horas                                                    ║${NC}"
-            echo -e "${CYAN}║ [3] Días                                                     ║${NC}"
-            echo -e "${CYAN}║ [4] Meses (30 días)                                          ║${NC}"
+            echo -e "${CYAN}${NC} [1] Minutos                                                ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} [2] Horas                                                  ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} [3] Días                                                   ${CYAN}${NC}"
+            echo -e "${CYAN}${NC} [4] Meses (30 días)                                        ${CYAN}${NC}"
            
             read -p "Opción: " unit_opt
 
@@ -519,17 +515,16 @@ while true; do
             read -p "Cantidad: " time_qty
             validar_numero "$time_qty" || { read -p "ENTER para continuar..."; continue; }
 
-            read -p "Número máximo de dispositivos: " max_devices_input
+            read -p "Número máximo de dispositivos (Solo SSH, 1 para V2Ray): " max_devices_input
             
             if [[ ! "$max_devices_input" =~ ^[0-9]+$ ]] || [[ "$max_devices_input" -le 0 ]]; then
-                echo -e "${RED}Error: El número de dispositivos debe ser un número entero mayor a 0.${NC}"
-                read -p "ENTER para continuar..."
-                continue
+                max_devices_input=1
             fi
 
             for idx in "${selected_indices[@]}"; do
                 idx=$(echo "$idx" | tr -d ' ')
-                username="${user_array[$((idx-1))]}"
+                username="${COMBINED_LIST[$((idx-1))]}"
+                type="${USER_TYPES[$((idx-1))]}"
                 
                 now_epoch=$(date +%s)
                 
@@ -557,23 +552,37 @@ while true; do
 
                 new_exp_date=$(echo "$new_exp_datetime" | cut -d' ' -f1)
 
-                usermod -e "$new_exp_date" "$username" 2>/dev/null
-                chage -E "$new_exp_date" "$username" 2>/dev/null
-                
-                if [[ -f "$DB_FILE" ]]; then
-                    temp_file=$(mktemp)
-                    grep -v "^${username}:" "$DB_FILE" > "$temp_file" 2>/dev/null || true
-                    echo "${username}:${new_exp_epoch}:${new_exp_datetime}:${max_devices_input}" >> "$temp_file"
-                    mv "$temp_file" "$DB_FILE"
+                if [[ "$type" == "SSH" ]]; then
+                    usermod -e "$new_exp_date" "$username" 2>/dev/null
+                    chage -E "$new_exp_date" "$username" 2>/dev/null
+                    
+                    if [[ -f "$DB_FILE" ]]; then
+                        temp_file=$(mktemp)
+                        grep -v "^${username}:" "$DB_FILE" > "$temp_file" 2>/dev/null || true
+                        echo "${username}:${new_exp_epoch}:${new_exp_datetime}:${max_devices_input}" >> "$temp_file"
+                        mv "$temp_file" "$DB_FILE"
+                    fi
+                elif [[ "$type" == "V2Ray" ]]; then
+                    if [[ -f "$V2RAY_DB" ]]; then
+                        temp_file=$(mktemp)
+                        grep -v "^${username}:" "$V2RAY_DB" > "$temp_file" 2>/dev/null || true
+                        # Mantener UUID y tráfico original
+                        old_uuid=$(grep "^${username}:" "$V2RAY_DB" 2>/dev/null | cut -d':' -f2)
+                        old_traffic=$(grep "^${username}:" "$V2RAY_DB" 2>/dev/null | cut -d':' -f5)
+                        [[ -z "$old_uuid" ]] && old_uuid="unknown"
+                        [[ -z "$old_traffic" ]] && old_traffic="0"
+                        echo "${username}:${old_uuid}:${new_exp_epoch}:${new_exp_datetime}:${old_traffic}" >> "$temp_file"
+                        mv "$temp_file" "$V2RAY_DB"
+                    fi
                 fi
 
-                echo -e "${GREEN}✅ Usuario SSH '$username' renovado exitosamente.${NC}"
+                echo -e "${GREEN}✅ Usuario '$username' ($type) renovado exitosamente.${NC}"
                 echo "   Nueva expiración: $new_exp_datetime"
             done
 
             echo
             echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-            echo -e "${CYAN}║ Renovación completada para los usuarios seleccionados. ✅    ║${NC}"
+            echo -e "${CYAN}${NC} Renovación completada para los usuarios seleccionados. ✅  ${CYAN}${NC}"
             echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
             echo
             read -p "ENTER para continuar..."
@@ -582,8 +591,41 @@ while true; do
         4)
             clear
             show_header
+            echo -e "${CYAN}══════════════════════════════════════════════════════════════╗${NC}"
+            echo -e "${CYAN}${NC} Usuarios Online                                            ${CYAN}${NC}"
+            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
+            echo
+            
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            printf "${CYAN} %-20s %-10s %-15s ${NC}\n" "Usuario" "Tipo" "Dispositivos"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            
+            # Usuarios SSH Online
+            online_ssh=$(who | awk '{print $1}' | sort -u)
+            for user in $online_ssh; do
+                current_dev=$(who | grep "^${user} " | wc -l)
+                printf "${CYAN} %-20s %-10s %-15s ${NC}\n" "$user" "SSH" "$current_dev"
+            done
+
+            # Usuarios V2Ray (Mostramos todos los de la DB, ya que no hay un 'who' nativo para V2Ray en bash puro sin panel)
+            if [[ -f "$V2RAY_DB" ]]; then
+                while IFS=: read -r v_user v_uuid v_exp v_date v_traffic; do
+                    if [[ -n "$v_user" ]]; then
+                        printf "${CYAN} %-20s %-10s %-15s ${NC}\n" "$v_user" "V2Ray" "N/A"
+                    fi
+                done < "$V2RAY_DB"
+            fi
+
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+            echo
+            read -p "ENTER para continuar..."
+            ;;
+
+        6)
+            clear
+            show_header
             echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-            echo -e "${CYAN}║ Cambiar Contraseña SSH                                       ║${NC}"
+            echo -e "${CYAN}${NC} Cambiar Contraseña                                         ${CYAN}${NC}"
             echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
             echo
             
@@ -609,113 +651,12 @@ while true; do
             read -p "ENTER para continuar..."
             ;;
 
-        5)
+        8)
             clear
             show_header
             echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-            echo -e "${CYAN}║ Lista de Usuarios SSH                                        ║${NC}"
-            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
-            echo
-            
-            users_list=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
-            
-            if [[ -z "$users_list" ]]; then
-                echo -e "${RED}No hay usuarios registrados en el sistema.${NC}"
-                echo
-                read -p "ENTER para continuar..."
-            else
-                echo -e "${CYAN}┌────────────────────────────────────────────────────────────────────────┐${NC}"
-                printf "%-15s %-15s %-12s\n" "Usuario" "Tiempo" "Estado"
-                echo -e "${CYAN}├────────────────────────────────────────────────────────────────────────┤${NC}"
-                
-                for user in $users_list; do
-                    exp_info=""
-                    db_entry=$(grep "^${user}:" "$DB_FILE" 2>/dev/null | head -1)
-
-                    if [[ -n "$db_entry" ]]; then
-                        exp_epoch=$(echo "$db_entry" | cut -d':' -f2)
-                        exp_datetime=$(echo "$db_entry" | cut -d':' -f3-)
-                    else
-                        exp_info=$(chage -l "$user" | grep "Account expires" | cut -d: -f2 | xargs)
-                        if [[ "$exp_info" != "never" ]]; then
-                            exp_epoch=$(date -d "$exp_info" +%s 2>/dev/null)
-                            exp_datetime="$exp_info"
-                        else
-                            exp_epoch=9999999999
-                            exp_datetime="Nunca"
-                        fi
-                    fi
-
-                    now_epoch=$(date +%s)
-
-                    if [[ "$exp_datetime" == "Nunca" ]]; then
-                        status="online"
-                        time_left="Nunca"
-                    elif [[ $exp_epoch -le $now_epoch ]]; then
-                        time_left="${RED}Expirado${NC}"
-                        status="offline"
-                    else
-                        status="online"
-                        diff=$((exp_epoch - now_epoch))
-
-                        if [[ $diff -ge 2592000 ]]; then
-                            months=$((diff / 2592000))
-                            time_left="${months}ms"
-                        elif [[ $diff -ge 86400 ]]; then
-                            days=$((diff / 86400))
-                            time_left="${days}d"
-                        elif [[ $diff -ge 3600 ]]; then
-                            hours=$((diff / 3600))
-                            time_left="${hours}h"
-                        elif [[ $diff -ge 60 ]]; then
-                            minutes=$((diff / 60))
-                            time_left="${minutes}mt"
-                        else
-                            time_left="${diff}sg"
-                        fi
-                    fi
-
-                    printf "%-15s %-15b %-12s\n" "$user" "$time_left" "$status"
-                done
-
-                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-                echo
-                read -p "ENTER para continuar..."
-            fi
-            ;;
-
-        6)
-            clear
-            show_header
-            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-            echo -e "${CYAN}║ Usuarios Online SSH                                          ║${NC}"
-            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
-            echo
-            
-            online_users=$(who | awk '{print $1}' | sort -u)
-            
-            if [[ -z "$online_users" ]]; then
-                echo -e "${RED}No hay usuarios conectados en este momento.${NC}"
-            else
-                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-                printf "${CYAN} %-20s %-15s ${NC}\n" "Usuario" "Dispositivos"
-                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-                for user in $online_users; do
-                    current_dev=$(who | grep "^${user} " | wc -l)
-                    printf "${CYAN} %-20s %-15s ${NC}\n" "$user" "$current_dev"
-                done
-                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            fi
-            echo
-            read -p "ENTER para continuar..."
-            ;;
-
-        7)
-            clear
-            show_header
-            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-            echo -e "${CYAN}║ Eliminar Usuarios Expirados                                  ║${NC}"
-            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
+            echo -e "${CYAN}${NC} Eliminar Usuarios Expirados                                ${CYAN}${NC}"
+            echo -e "${CYAN}══════════════════════════════════════════════════════════════╝${NC}"
             echo
             
             deleted_count=0
@@ -762,13 +703,13 @@ while true; do
             # Eliminar V2Ray expirados
             if [[ -f "$V2RAY_DB" ]]; then
                 temp_file=$(mktemp)
-                while IFS=':' read -r v_user v_uuid v_proto v_epoch v_datetime v_traffic; do
+                while IFS=':' read -r v_user v_uuid v_epoch v_datetime v_traffic; do
                     if [[ -n "$v_user" ]]; then
                         if [[ "$v_epoch" -lt "$current_epoch" ]]; then
                             echo -e "${RED}️ Usuario V2Ray '$v_user' eliminado (Expiró: $v_datetime)${NC}"
                             ((deleted_count++))
                         else
-                            echo "${v_user}:${v_uuid}:${v_proto}:${v_epoch}:${v_datetime}:${v_traffic}" >> "$temp_file"
+                            echo "${v_user}:${v_uuid}:${v_epoch}:${v_datetime}:${v_traffic}" >> "$temp_file"
                         fi
                     fi
                 done < "$V2RAY_DB"
@@ -778,311 +719,23 @@ while true; do
             echo
             if [[ $deleted_count -eq 0 ]]; then
                 echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-                echo -e "${CYAN}║ No se encontraron usuarios expirados.                         ║${NC}"
+                echo -e "${CYAN}${NC} No se encontraron usuarios expirados.                     ${CYAN}${NC}"
                 echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             else
-                echo -e "${CYAN}║ Se eliminaron $deleted_count usuario(s) expirado(s).                  ${NC}"
+                echo -e "${CYAN}${NC} Se eliminaron $deleted_count usuario(s) expirado(s).                  ${CYAN}${NC}"
             fi
             echo
             read -p "ENTER para continuar..."
             ;;
 
-        8)
+        7)
             clear
             show_header
             echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-            echo -e "${CYAN}║                    XRAY / V2RAY MANAGER                      ║${NC}"
+            echo -e "${CYAN}${NC} Configuración                                              ${CYAN}${NC}"
             echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
             echo
-            echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
-            echo -e "${CYAN}│${NC} [01] Crear Usuario VLESS TCP                               ${CYAN}│${NC}"
-            echo -e "${CYAN}│${NC} [02] Crear Usuario VLESS WS                                ${CYAN}│${NC}"
-            echo -e "${CYAN}│${NC} [03] Crear Usuario VMESS WS                                ${CYAN}│${NC}"
-            echo -e "${CYAN}│${NC} [04] Crear Usuario TROJAN WS                               ${CYAN}│${NC}"
-            echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
-            echo
-            read -p "Seleccione una opción: " v2ray_opt
-            
-            case $v2ray_opt in
-                1) crear_usuario_v2ray "VLESS TCP" ;;
-                2) crear_usuario_v2ray "VLESS WS" ;;
-                3) crear_usuario_v2ray "VMESS WS" ;;
-                4) crear_usuario_v2ray "TROJAN WS" ;;
-                *)
-                    echo -e "${RED}Opción inválida.${NC}"
-                    sleep 1.5
-                    ;;
-            esac
-            ;;
-
-        9)
-            clear
-            show_header
-            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-            echo -e "${CYAN}║ Renovar Usuario V2Ray                                        ║${NC}"
-            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
-            echo
-            
-            if [[ ! -s "$V2RAY_DB" ]]; then
-                echo -e "${RED}No hay usuarios V2Ray registrados.${NC}"
-                read -p "ENTER para continuar..."
-                continue
-            fi
-
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            printf "${CYAN} %-5s %-15s %-15s %-24s %-10s ${NC}\n" "N°" "Usuario" "Protocolo" "Expiración" "Estado"
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            
-            i=1
-            declare -a v2ray_users=()
-            while IFS=: read -r v_user v_uuid v_proto v_exp v_date v_traffic; do
-                v2ray_users+=("$v_user")
-                now_epoch=$(date +%s)
-                if [[ "$v_exp" -le "$now_epoch" ]]; then
-                    status="${RED}Expirado${NC}"
-                else
-                    status="${GREEN}Activo${NC}"
-                fi
-                printf "${CYAN} %-5s %-15s %-15s %-24s %-10b ${NC}\n" "$i" "$v_user" "$v_proto" "$v_date" "$status"
-                ((i++))
-            done < "$V2RAY_DB"
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            echo
-            
-            read -p "Ingrese el/los número(s) de usuario a renovar (ej: 1 o 1,2,3): " selection
-            IFS=',' read -ra selected_indices <<< "$selection"
-            
-            valid_selection=true
-            for idx in "${selected_indices[@]}"; do
-                idx=$(echo "$idx" | tr -d ' ')
-                if ! [[ "$idx" =~ ^[0-9]+$ ]] || [[ "$idx" -lt 1 ]] || [[ "$idx" -gt "${#v2ray_users[@]}" ]]; then
-                    valid_selection=false
-                    break
-                fi
-            done
-            
-            if [[ "$valid_selection" == false ]] || [[ ${#selected_indices[@]} -eq 0 ]]; then
-                echo -e "${RED}Error: Selección inválida.${NC}"
-                read -p "ENTER para continuar..."
-                continue
-            fi
-
-            echo
-            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-            echo -e "${CYAN}║ Seleccione la unidad de tiempo:                              ║${NC}"
-            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
-            echo -e "${CYAN}║ [1] Minutos                                                  ║${NC}"
-            echo -e "${CYAN}║ [2] Horas                                                    ║${NC}"
-            echo -e "${CYAN}║ [3] Días                                                     ║${NC}"
-            echo -e "${CYAN}║ [4] Meses (30 días)                                          ║${NC}"
-           
-            read -p "Opción: " unit_opt
-
-            case $unit_opt in
-                1) unit_str="minutes" ;;
-                2) unit_str="hours" ;;
-                3) unit_str="days" ;;
-                4) unit_str="months" ;;
-                *) 
-                    echo -e "${RED}Opción inválida.${NC}"
-                    read -p "ENTER para continuar..."
-                    continue 
-                    ;;
-            esac
-
-            read -p "Cantidad: " time_qty
-            validar_numero "$time_qty" || { read -p "ENTER para continuar..."; continue; }
-
-            for idx in "${selected_indices[@]}"; do
-                idx=$(echo "$idx" | tr -d ' ')
-                username="${v2ray_users[$((idx-1))]}"
-                
-                now_epoch=$(date +%s)
-                
-                case $unit_str in
-                    minutes) add_seconds=$((time_qty * 60)) ;;
-                    hours)   add_seconds=$((time_qty * 3600)) ;;
-                    days)    add_seconds=$((time_qty * 86400)) ;;
-                    months)  
-                        new_exp_datetime=$(date -d "+$time_qty months" "+%Y-%m-%d %H:%M:%S")
-                        new_exp_epoch=$(date -d "$new_exp_datetime" +%s)
-                        ;;
-                esac
-
-                if [[ "$unit_str" != "months" ]]; then
-                    new_exp_epoch=$((now_epoch + add_seconds))
-                    new_exp_datetime=$(date -d "@$new_exp_epoch" "+%Y-%m-%d %H:%M:%S")
-                fi
-
-                if [[ -f "$V2RAY_DB" ]]; then
-                    temp_file=$(mktemp)
-                    while IFS=: read -r v_user v_uuid v_proto v_exp v_date v_traffic; do
-                        if [[ "$v_user" == "$username" ]]; then
-                            echo "${v_user}:${v_uuid}:${v_proto}:${new_exp_epoch}:${new_exp_datetime}:${v_traffic}" >> "$temp_file"
-                        else
-                            echo "${v_user}:${v_uuid}:${v_proto}:${v_exp}:${v_date}:${v_traffic}" >> "$temp_file"
-                        fi
-                    done < "$V2RAY_DB"
-                    mv "$temp_file" "$V2RAY_DB"
-                fi
-
-                echo -e "${GREEN}✅ Usuario V2Ray '$username' renovado exitosamente.${NC}"
-                echo "   Nueva expiración: $new_exp_datetime"
-            done
-
-            echo
-            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-            echo -e "${CYAN}║ Renovación completada para los usuarios seleccionados. ✅    ║${NC}"
-            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
-            echo
-            read -p "ENTER para continuar..."
-            ;;
-
-        10)
-            clear
-            show_header
-            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-            echo -e "${CYAN}║ Eliminar Usuario V2Ray                                       ║${NC}"
-            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
-            echo
-            
-            if [[ ! -s "$V2RAY_DB" ]]; then
-                echo -e "${RED}No hay usuarios V2Ray registrados.${NC}"
-                read -p "ENTER para continuar..."
-                continue
-            fi
-
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            printf "${CYAN} %-5s %-15s %-15s %-24s %-10s ${NC}\n" "N°" "Usuario" "Protocolo" "Expiración" "Estado"
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            
-            i=1
-            declare -a v2ray_users=()
-            while IFS=: read -r v_user v_uuid v_proto v_exp v_date v_traffic; do
-                v2ray_users+=("$v_user")
-                now_epoch=$(date +%s)
-                if [[ "$v_exp" -le "$now_epoch" ]]; then
-                    status="${RED}Expirado${NC}"
-                else
-                    status="${GREEN}Activo${NC}"
-                fi
-                printf "${CYAN} %-5s %-15s %-15s %-24s %-10b ${NC}\n" "$i" "$v_user" "$v_proto" "$v_date" "$status"
-                ((i++))
-            done < "$V2RAY_DB"
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            echo
-            
-            read -p "Ingrese el/los número(s) de usuario a eliminar (ej: 1 o 1,2,3): " selection
-            IFS=',' read -ra selected_indices <<< "$selection"
-            
-            valid_selection=true
-            for idx in "${selected_indices[@]}"; do
-                idx=$(echo "$idx" | tr -d ' ')
-                if ! [[ "$idx" =~ ^[0-9]+$ ]] || [[ "$idx" -lt 1 ]] || [[ "$idx" -gt "${#v2ray_users[@]}" ]]; then
-                    valid_selection=false
-                    break
-                fi
-            done
-            
-            if [[ "$valid_selection" == false ]] || [[ ${#selected_indices[@]} -eq 0 ]]; then
-                echo -e "${RED}Error: Selección inválida.${NC}"
-                read -p "ENTER para continuar..."
-                continue
-            fi
-            
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            read -p " ¿Está seguro de eliminar los usuarios seleccionados? (s/N): " confirm
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            
-            if [[ "$confirm" =~ ^[Ss]$ ]]; then
-                for idx in "${selected_indices[@]}"; do
-                    idx=$(echo "$idx" | tr -d ' ')
-                    username="${v2ray_users[$((idx-1))]}"
-                    
-                    if [[ -f "$V2RAY_DB" ]]; then
-                        temp_file=$(mktemp)
-                        grep -v "^${username}:" "$V2RAY_DB" > "$temp_file" 2>/dev/null || true
-                        mv "$temp_file" "$V2RAY_DB"
-                    fi
-                    echo -e "${GREEN}✅ Usuario V2Ray '$username' eliminado correctamente.${NC}"
-                done
-            else
-                echo -e "${YELLOW}Operación cancelada.${NC}"
-            fi
-            echo
-            read -p "ENTER para continuar..."
-            ;;
-
-        11)
-            clear
-            show_header
-            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-            echo -e "${CYAN}║ Lista de Usuarios V2Ray                                      ║${NC}"
-            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
-            echo
-            
-            if [[ ! -s "$V2RAY_DB" ]]; then
-                echo -e "${RED}No hay usuarios V2Ray registrados.${NC}"
-                read -p "ENTER para continuar..."
-                continue
-            fi
-
-            echo -e "${CYAN}┌────────────────────────────────────────────────────────────────────────┐${NC}"
-            printf "%-15s %-15s %-15s %-12s\n" "Usuario" "Protocolo" "Tiempo" "Estado"
-            echo -e "${CYAN}├────────────────────────────────────────────────────────────────────────┤${NC}"
-            
-            while IFS=: read -r v_user v_uuid v_proto v_exp v_date v_traffic; do
-                now_epoch=$(date +%s)
-                if [[ "$v_exp" -le "$now_epoch" ]]; then
-                    time_left="${RED}Expirado${NC}"
-                    status="offline"
-                else
-                    status="online"
-                    diff=$((v_exp - now_epoch))
-                    if [[ $diff -ge 2592000 ]]; then
-                        months=$((diff / 2592000))
-                        time_left="${months}ms"
-                    elif [[ $diff -ge 86400 ]]; then
-                        days=$((diff / 86400))
-                        time_left="${days}d"
-                    elif [[ $diff -ge 3600 ]]; then
-                        hours=$((diff / 3600))
-                        time_left="${hours}h"
-                    elif [[ $diff -ge 60 ]]; then
-                        minutes=$((diff / 60))
-                        time_left="${minutes}mt"
-                    else
-                        time_left="${diff}sg"
-                    fi
-                fi
-
-                printf "%-15s %-15s %-15b %-12s\n" "$v_user" "$v_proto" "$time_left" "$status"
-            done < "$V2RAY_DB"
-
-            echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            echo
-            read -p "ENTER para continuar..."
-            ;;
-
-        12)
-            clear
-            show_header
-            echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-            echo -e "${CYAN}║ Usuarios Online V2Ray                                        ║${NC}"
-            echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
-            echo
-            
-            if [[ ! -s "$V2RAY_DB" ]]; then
-                echo -e "${RED}No hay usuarios V2Ray registrados.${NC}"
-            else
-                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-                printf "${CYAN} %-20s %-15s %-15s ${NC}\n" "Usuario" "Protocolo" "Dispositivos"
-                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-                while IFS=: read -r v_user v_uuid v_proto v_exp v_date v_traffic; do
-                    printf "${CYAN} %-20s %-15s %-15s ${NC}\n" "$v_user" "$v_proto" "N/A"
-                done < "$V2RAY_DB"
-                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-            fi
+            echo -e "${YELLOW}Opción de configuración en desarrollo o no disponible.${NC}"
             echo
             read -p "ENTER para continuar..."
             ;;
