@@ -574,9 +574,12 @@ while true; do
                 echo -e "${RED}No hay usuarios conectados en este momento.${NC}"
             else
                 echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-                printf "${CYAN} ${NC} %-11s %-9s %-17s %s %s ${CYAN} ${NC}\n" "Usuario" "Terminal" "IP/Puerto" "Fecha" "Hora"
+                printf "${CYAN} ${NC} %-20s %-15s ${CYAN} ${NC}\n" "Usuario" "Dispositivos"
                 echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-                who | awk '{printf "${CYAN} ${NC} %-11s %-9s %-17s %s %s ${CYAN} ${NC}\n", $1, $2, $5, $3, $4}'
+                for user in $online_users; do
+                    current_dev=$(who | grep "^${user} " | wc -l)
+                    printf "${CYAN} ${NC} %-20s %-15s ${CYAN} ${NC}\n" "$user" "$current_dev"
+                done
                 echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
             fi
             echo
@@ -598,10 +601,10 @@ while true; do
                 echo
                 read -p "ENTER para continuar..."
             else
-                echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
-                printf "%-12s %-10s %-10s %-12s %-13s\n" \
-                "Usuario" "Tiempo" "Estado" "Conexión" "Dispositivos"
-                echo -e "${CYAN}├────────────────────────────────────────────────────────────┤${NC}"
+                echo -e "${CYAN}┌────────────────────────────────────────────────────────────────────────┐${NC}"
+                printf "%-15s %-15s %-12s\n" \
+                "Usuario" "Tiempo" "Estado"
+                echo -e "${CYAN}├────────────────────────────────────────────────────────────────────────┤${NC}"
                 
                 for user in $users_list; do
                     exp_info=""
@@ -669,21 +672,13 @@ while true; do
                         fi
                     fi
 
-                    if who | grep -q "^${user} "; then
-                        connection="${GREEN}Online${NC}"
-                    else
-                        connection="${GRAY}Offline${NC}"
-                    fi
-
-                    printf "%-12s %-10b %-18s %-12b %-18s\n" \
+                    printf "%-15s %-15b %-12s\n" \
                     "$user" \
                     "$time_left" \
-                    "$status" \
-                    "$connection" \
-                    "${current_dev}/${max_dev}"
+                    "$status"
                 done
 
-                echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
+                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
                 echo
                 read -p "ENTER para continuar..."
             fi
