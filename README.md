@@ -1,16 +1,8 @@
+# 🚀 OXGI VPS Script
 
-# install-bootstrap.sh (más seguro)
-#!/bin/bash
-INSTALLER_URL="https://raw.githubusercontent.com/gitechcode-star/oxgi-vps-script/main/install.sh"
+Panel completo para gestión de VPS con instalación automática de SSH, WebSocket, V2Ray/Xray, BadVPN UDP y más.
 
-echo " Descargando OXGI VPS Script..."
-curl -Ls $INSTALLER_URL -o /tmp/oxgi-install.sh
+## ⚡ Instalación (Un Solo Comando)
 
-if [[ $? -eq 0 ]]; then
-    echo "🚀 Iniciando instalación..."
-    bash /tmp/oxgi-install.sh
-    rm -f /tmp/oxgi-install.sh
-else
-    echo "❌ Error al descargar"
-    exit 1
-fi
+```bash
+sudo bash <(curl -Ls https://raw.githubusercontent.com/gitechcode-star/oxgi-vps-script/main/install.sh)
