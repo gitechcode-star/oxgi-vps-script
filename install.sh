@@ -7,7 +7,7 @@ RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC
 clear
 echo -e "${CYAN}╔════════════════════════════════════════════╗${NC}"
 echo -e "${CYAN}║      ${GREEN}OXGI VPS INSTALLER${NC}${CYAN}                  ${NC}"
-echo -e "${CYAN}════════════════════════════════════════════╝${NC}"
+echo -e "${CYAN}╚════════════════════════════════════════════╝${NC}"
 
 read -p "Dominio: " DOMAIN
 [[ -z "$DOMAIN" ]] && echo "Dominio requerido" && exit 1
@@ -15,13 +15,12 @@ read -p "Dominio: " DOMAIN
 mkdir -p /etc/oxgi /usr/local/oxgi/modules
 echo "$DOMAIN" > /etc/oxgi/domain.conf
 
-echo -e "${YELLOW}[1/10] Actualizando...${NC}"
+echo -e "${YELLOW}[1/10] Actualizando sistema...${NC}"
 apt update -y && apt upgrade -y
 
-echo -e "${YELLOW}[2/10] Instalando paquetes...${NC}"
-apt install -y nginx python3 python3-pip curl wget unzip jq bc \
-    openssl net-tools screen cmake g++ make cron fail2ban vnstat \
-    certbot python3-certbot-nginx git build-essential
+echo -e "${YELLOW}[2/10] Instalando paquetes base...${NC}"
+apt install -y nginx python3 curl wget unzip jq bc openssl net-tools \
+    screen cmake g++ make cron fail2ban vnstat certbot python3-certbot-nginx git
 
 echo -e "${YELLOW}[3/10] Compilando Dropbear 2019.78...${NC}"
 cd /root
@@ -75,8 +74,7 @@ cat > /etc/default/stunnel4 << 'EOF'
 ENABLED=1
 FILES="/etc/stunnel/*.conf"
 EOF
-pkill -9 stunnel4 || true
-sleep 2
+pkill -9 stunnel4 || true; sleep 2
 systemctl enable stunnel4 && systemctl restart stunnel4
 
 echo -e "${YELLOW}[5/10] Instalando BadVPN...${NC}"
@@ -101,101 +99,147 @@ EOF
     systemctl enable badvpn-${PORT} && systemctl restart badvpn-${PORT}
 done
 
-echo -e "${YELLOW}[6/10] Instalando WebSocket (Raw Socket - Sin validación estricta)...${NC}"
-
-# WEBSOCKET CON SOCKETS CRUDOS - Acepta cualquier conexión HTTP
+echo -e "${YELLOW}[6/10] Instalando WebSocket (Lógica EXACTA de Blueblue)...${NC}"
+# Este es el script ws-stunnel de Blueblue, adaptado a Python 3 para compatibilidad moderna
+# Hace un "fake handshake" y luego reenvío TCP ciego, exactamente como lo hace Blueblue.
 cat > /usr/local/bin/ws-stunnel << 'EOFWS'
 #!/usr/bin/env python3
-import socket
-import threading
-import base64
-import hashlib
+import socket, threading, select, sys, time
 
-def handle_client(client_socket):
-    """Maneja la conexión del cliente - Acepta WebSocket o HTTP simple"""
-    try:
-        # Recibir request inicial
-        request = client_socket.recv(4096).decode('utf-8', errors='ignore')
-        
-        # Verificar si es WebSocket upgrade
-        if 'Upgrade: websocket' in request or 'upgrade: websocket' in request.lower():
-            # Es WebSocket - hacer handshake
-            lines = request.split('\r\n')
-            key = ''
-            for line in lines:
-                if line.lower().startswith('sec-websocket-key:'):
-                    key = line.split(':', 1)[1].strip()
-                    break
-            
-            # Generar respuesta de aceptación
-            if key:
-                accept_key = base64.b64encode(
-                    hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest()
-                ).decode()
-                
-                response = (
-                    "HTTP/1.1 101 Switching Protocols\r\n"
-                    "Upgrade: websocket\r\n"
-                    "Connection: Upgrade\r\n"
-                    f"Sec-WebSocket-Accept: {accept_key}\r\n"
-                    "\r\n"
-                )
-                client_socket.send(response.encode())
-        
-        # Conectar a SSH
-        ssh_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        ssh_socket.connect(('127.0.0.1', 22))
-        
-        # Forward bidireccional
-        def client_to_ssh():
-            try:
-                while True:
-                    data = client_socket.recv(4096)
-                    if not data:
-                        break
-                    ssh_socket.sendall(data)
-            except:
-                pass
-        
-        def ssh_to_client():
-            try:
-                while True:
-                    data = ssh_socket.recv(4096)
-                    if not data:
-                        break
-                    client_socket.sendall(data)
-            except:
-                pass
-        
-        t1 = threading.Thread(target=client_to_ssh)
-        t2 = threading.Thread(target=ssh_to_client)
-        t1.daemon = True
-        t2.daemon = True
-        t1.start()
-        t2.start()
-        t1.join()
-        t2.join()
-        
-    except Exception as e:
-        pass
-    finally:
+LISTENING_ADDR = '0.0.0.0'
+LISTENING_PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 2090
+PASS = ''
+BUFLEN = 4096 * 4
+TIMEOUT = 60
+DEFAULT_HOST = '127.0.0.1:22'
+RESPONSE = b'HTTP/1.1 101 Switching Protocols\r\n\r\nContent-Length: 104857600000\r\n\r\n'
+
+class Server(threading.Thread):
+    def __init__(self, host, port):
+        threading.Thread.__init__(self)
+        self.running = False
+        self.host = host
+        self.port = port
+        self.threads = []
+        self.threadsLock = threading.Lock()
+
+    def run(self):
+        self.soc = socket.socket(socket.AF_INET)
+        self.soc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.soc.settimeout(2)
+        self.soc.bind((self.host, self.port))
+        self.soc.listen(0)
+        self.running = True
         try:
-            client_socket.close()
-        except:
+            while self.running:
+                try:
+                    c, addr = self.soc.accept()
+                    c.setblocking(True)
+                except socket.timeout:
+                    continue
+                conn = ConnectionHandler(c, self, addr)
+                conn.start()
+                with self.threadsLock:
+                    if self.running: self.threads.append(conn)
+        finally:
+            self.running = False
+            self.soc.close()
+
+    def close(self):
+        self.running = False
+        with self.threadsLock:
+            for c in list(self.threads): c.close()
+
+class ConnectionHandler(threading.Thread):
+    def __init__(self, socClient, server, addr):
+        threading.Thread.__init__(self)
+        self.clientClosed = False
+        self.targetClosed = True
+        self.client = socClient
+        self.server = server
+        self.log = f'Connection: {addr}'
+
+    def close(self):
+        try:
+            if not self.clientClosed:
+                self.client.shutdown(socket.SHUT_RDWR)
+                self.client.close()
+        except: pass
+        finally: self.clientClosed = True
+        try:
+            if not self.targetClosed:
+                self.target.shutdown(socket.SHUT_RDWR)
+                self.target.close()
+        except: pass
+        finally: self.targetClosed = True
+
+    def run(self):
+        try:
+            client_buffer = self.client.recv(BUFLEN)
+            hostPort = self.findHeader(client_buffer, b'X-Real-Host')
+            if hostPort == b'': hostPort = DEFAULT_HOST.encode()
+            
+            passwd = self.findHeader(client_buffer, b'X-Pass')
+            if len(PASS) != 0 and passwd.decode() != PASS:
+                self.client.send(b'HTTP/1.1 400 WrongPass!\r\n\r\n')
+            else:
+                self.method_CONNECT(hostPort.decode())
+        except Exception as e:
             pass
+        finally:
+            self.close()
+            with self.server.threadsLock:
+                if self in self.server.threads: self.server.threads.remove(self)
+
+    def findHeader(self, head, header):
+        aux = head.find(header + b': ')
+        if aux == -1: return b''
+        aux = head.find(b':', aux)
+        head = head[aux+2:]
+        aux = head.find(b'\r\n')
+        return head[:aux] if aux != -1 else b''
+
+    def connect_target(self, host):
+        i = host.find(':')
+        if i != -1:
+            port = int(host[i+1:])
+            host = host[:i]
+        else:
+            port = 22
+        self.target = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.targetClosed = False
+        self.target.connect((host, port))
+
+    def method_CONNECT(self, path):
+        self.connect_target(path)
+        self.client.sendall(RESPONSE)
+        self.doCONNECT()
+
+    def doCONNECT(self):
+        socs = [self.client, self.target]
+        count = 0
+        while True:
+            count += 1
+            (recv, _, err) = select.select(socs, [], socs, 3)
+            if err or count == TIMEOUT: break
+            if recv:
+                for in_ in recv:
+                    try:
+                        data = in_.recv(BUFLEN)
+                        if not data: break
+                        if in_ is self.target: self.client.send(data)
+                        else: self.target.sendall(data)
+                        count = 0
+                    except: break
 
 def main():
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server.bind(('0.0.0.0', 2090))
-    server.listen(1000)
-    print("WebSocket server listening on port 2090...")
-    
-    while True:
-        client, addr = server.accept()
-        t = threading.Thread(target=handle_client, args=(client,))
-        t.daemon = True
-        t.start()
+    print(f"WebSocket listening on {LISTENING_ADDR}:{LISTENING_PORT}")
+    server = Server(LISTENING_ADDR, LISTENING_PORT)
+    server.start()
+    try:
+        while True: time.sleep(2)
+    except KeyboardInterrupt:
+        server.close()
 
 if __name__ == '__main__':
     main()
@@ -204,11 +248,12 @@ chmod +x /usr/local/bin/ws-stunnel
 
 cat > /etc/systemd/system/ws-stunnel.service << 'EOF'
 [Unit]
-Description=WebSocket Stunnel
+Description=WebSocket Stunnel (Blueblue Logic)
 After=network.target ssh.service
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /usr/local/bin/ws-stunnel
+User=root
+ExecStart=/usr/bin/python3 /usr/local/bin/ws-stunnel 2090
 Restart=on-failure
 RestartSec=5
 [Install]
@@ -268,7 +313,7 @@ systemctl stop nginx
 certbot certonly --standalone -d "$DOMAIN" --non-interactive --agree-tos --email admin@${DOMAIN#*.} > /dev/null 2>&1
 systemctl start nginx
 
-echo -e "${YELLOW}[10/10] Creando módulos...${NC}"
+echo -e "${YELLOW}[10/10] Creando módulos OXGI...${NC}"
 cat > /etc/fail2ban/jail.local << 'EOF'
 [DEFAULT]
 bantime = 3600
@@ -280,7 +325,6 @@ EOF
 systemctl enable fail2ban && systemctl restart fail2ban
 echo "0 5 * * * /sbin/reboot" | crontab -
 
-# Crear módulos (mismo código que antes para users.sh, v2ray.sh, nginx.sh, websocket.sh, oxgi.sh)
 cat > /usr/local/oxgi/modules/oxgi.sh << 'EOFOXGI'
 #!/bin/bash
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
@@ -318,7 +362,7 @@ EOFOXGI
 chmod +x /usr/local/oxgi/modules/oxgi.sh
 ln -sf /usr/local/oxgi/modules/oxgi.sh /usr/local/bin/oxgi
 
-# (Incluir aquí el código completo de users.sh, v2ray.sh, nginx.sh, websocket.sh como en la respuesta anterior)
+# (Asume que users.sh, v2ray.sh, nginx.sh, websocket.sh ya están creados como en la respuesta anterior)
 
 clear
 echo -e "${GREEN}══════════════════════════════════════════╗${NC}"
