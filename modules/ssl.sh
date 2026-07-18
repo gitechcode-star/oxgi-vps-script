@@ -37,16 +37,28 @@ request_cert() {
         return 1
     fi
     
+    # Detener nginx temporalmente para certbot standalone
+    systemctl stop nginx 2>/dev/null
+    
     echo -e "${YELLOW}[*] Solicitando certificado para: $DOMAIN${NC}"
     certbot certonly --standalone -d $DOMAIN --non-interactive --agree-tos -m admin@$DOMAIN
     
-    if [[ $? -eq 0 ]]; then
+    CERT_STATUS=$?
+    
+    # Volver a iniciar nginx
+    systemctl start nginx 2>/dev/null
+    
+    if [[ $CERT_STATUS -eq 0 ]]; then
         echo -e "${GREEN}[OK] Certificado obtenido.${NC}"
         echo ""
         echo -e "${YELLOW}📍 Ubicación:${NC}"
         echo -e "  /etc/letsencrypt/live/$DOMAIN/"
+        echo ""
+        echo -e "${YELLOW}⚠️  Siguiente paso:${NC}"
+        echo -e "  Ve al menú Nginx y selecciona 'Configurar SSL + WebSocket'"
     else
         echo -e "${RED}[!] Error al obtener certificado.${NC}"
+        echo -e "${YELLOW}    Verifica que el dominio apunte a esta IP.${NC}"
     fi
     
     read -p "Presiona ENTER..."
