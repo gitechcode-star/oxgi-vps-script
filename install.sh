@@ -12,7 +12,7 @@ echo -e "${CYAN}╚════════════════════�
 read -p "Dominio: " DOMAIN
 [[ -z "$DOMAIN" ]] && echo "Dominio requerido" && exit 1
 
-mkdir -p /etc/oxgi /usr/local/oxgi/modules
+mkdir -p /etc/oxgi /usr/local/oxgi/modules /etc/xray
 echo "$DOMAIN" > /etc/oxgi/domain.conf
 
 echo -e "${YELLOW}[1/10] Actualizando sistema...${NC}"
@@ -22,8 +22,8 @@ echo -e "${YELLOW}[2/10] Instalando paquetes base...${NC}"
 apt install -y nginx python3 curl wget unzip jq bc openssl net-tools \
     screen cmake g++ make cron fail2ban vnstat certbot python3-certbot-nginx git ufw
 
-# Configurar Firewall (Incluyendo UDP Custom 1-65535)
-echo -e "${YELLOW}[2.5/10] Configurando Firewall y UDP Custom...${NC}"
+# Firewall (Lógica Blueblue: Puertos específicos + UDP Custom abierto)
+echo -e "${YELLOW}[2.5/10] Configurando Firewall (IPtables/UFW)...${NC}"
 ufw --force reset > /dev/null 2>&1
 ufw default deny incoming > /dev/null 2>&1
 ufw default allow outgoing > /dev/null 2>&1
@@ -37,7 +37,7 @@ ufw allow 777/tcp
 ufw allow 81/tcp
 ufw allow 7100:7300/tcp
 ufw allow 7100:7300/udp
-# REGLA CRÍTICA PARA UDP CUSTOM (Rango completo para que funcione en HTTP Custom)
+# UDP Custom: Rango completo abierto para que la app cliente pueda enviar UDP crudo
 ufw allow 1:65535/udp > /dev/null 2>&1
 echo "y" | ufw enable > /dev/null 2>&1
 
@@ -68,7 +68,7 @@ EOF
 systemctl daemon-reload && systemctl enable dropbear && systemctl restart dropbear
 /usr/local/sbin/dropbear -p 143 -W 65536
 
-echo -e "${YELLOW}[4/10] Instalando Stunnel...${NC}"
+echo -e "${YELLOW}[4/10] Instalando Stunnel4...${NC}"
 apt install -y stunnel4
 mkdir -p /etc/stunnel
 openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
@@ -96,7 +96,7 @@ EOF
 pkill -9 stunnel4 || true; sleep 2
 systemctl enable stunnel4 && systemctl restart stunnel4
 
-echo -e "${YELLOW}[5/10] Instalando BadVPN (UDPGW)...${NC}"
+echo -e "${YELLOW}[5/10] Instalando BadVPN (7100, 7200, 7300)...${NC}"
 mkdir -p /root/badvpn && cd /root/badvpn
 if [[ ! -f "/usr/bin/badvpn-udpgw" ]]; then
     git clone https://github.com/ambrop72/badvpn.git . > /dev/null 2>&1
@@ -194,7 +194,6 @@ class ConnectionHandler(threading.Thread):
             client_buffer = self.client.recv(BUFLEN)
             hostPort = self.findHeader(client_buffer, b'X-Real-Host')
             if hostPort == b'': hostPort = DEFAULT_HOST.encode()
-            
             passwd = self.findHeader(client_buffer, b'X-Pass')
             if len(PASS) != 0 and passwd.decode() != PASS:
                 self.client.send(b'HTTP/1.1 400 WrongPass!\r\n\r\n')
@@ -248,7 +247,6 @@ class ConnectionHandler(threading.Thread):
                     except: break
 
 def main():
-    print(f"WebSocket listening on {LISTENING_ADDR}:{LISTENING_PORT}")
     server = Server(LISTENING_ADDR, LISTENING_PORT)
     server.start()
     try:
@@ -276,19 +274,20 @@ WantedBy=multi-user.target
 EOF
 systemctl daemon-reload && systemctl enable ws-stunnel && systemctl restart ws-stunnel
 
-echo -e "${YELLOW}[7/10] Instalando Xray...${NC}"
+echo -e "${YELLOW}[7/10] Instalando Xray (Lógica Blueblue)...${NC}"
 bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install > /dev/null 2>&1
 UUID=$(cat /proc/sys/kernel/random/uuid)
 echo "$UUID" > /etc/oxgi/xray_uuid
 
+# Config.json estándar de Blueblue con routing por Nginx
 cat > /etc/xray/config.json << EOFXRAY
 {
   "log": {"loglevel": "warning"},
   "inbounds": [
-    {"port": 10000, "protocol": "vmess", "settings": {"clients": [{"id": "${UUID}", "level": 0}]}, "streamSettings": {"network": "ws", "wsSettings": {"path": "/vmess"}}},
+    {"port": 10000, "protocol": "vmess", "settings": {"clients": [{"id": "${UUID}", "level": 0, "alterId": 0}]}, "streamSettings": {"network": "ws", "wsSettings": {"path": "/vmess"}}},
     {"port": 10001, "protocol": "vless", "settings": {"clients": [{"id": "${UUID}", "level": 0}], "decryption": "none"}, "streamSettings": {"network": "ws", "wsSettings": {"path": "/vless"}}},
     {"port": 10002, "protocol": "trojan", "settings": {"clients": [{"password": "${UUID}", "level": 0}]}, "streamSettings": {"network": "ws", "wsSettings": {"path": "/trojan"}}},
-    {"port": 10003, "protocol": "shadowsocks", "settings": {"clients": [{"password": "${UUID}", "method": "aes-256-gcm"}]}, "streamSettings": {"network": "ws", "wsSettings": {"path": "/sodosok"}}}
+    {"port": 10003, "protocol": "shadowsocks", "settings": {"clients": [{"password": "${UUID}", "method": "aes-256-gcm"}]}, "streamSettings": {"network": "ws", "wsSettings": {"path": "/ss"}}}
   ],
   "outbounds": [{"protocol": "freedom"}]
 }
@@ -304,7 +303,7 @@ server {
     location /vmess { proxy_pass http://127.0.0.1:10000; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
     location /vless { proxy_pass http://127.0.0.1:10001; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
     location /trojan { proxy_pass http://127.0.0.1:10002; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
-    location /sodosok { proxy_pass http://127.0.0.1:10003; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
+    location /ss { proxy_pass http://127.0.0.1:10003; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
 }
 server {
     listen 443 ssl http2; server_name ${DOMAIN};
@@ -315,7 +314,7 @@ server {
     location /vmess { proxy_pass http://127.0.0.1:10000; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
     location /vless { proxy_pass http://127.0.0.1:10001; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
     location /trojan { proxy_pass http://127.0.0.1:10002; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
-    location /sodosok { proxy_pass http://127.0.0.1:10003; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
+    location /ss { proxy_pass http://127.0.0.1:10003; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
 }
 server { listen 81; server_name 127.0.0.1 localhost; root /home/vps/public_html; location / { index index.html index.htm index.php; try_files \$uri \$uri/ /index.php?\$args; } location ~ \.php\$ { include /etc/nginx/fastcgi_params; fastcgi_pass 127.0.0.1:9000; fastcgi_index index.php; fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name; } }
 EOF
@@ -433,6 +432,7 @@ done
 EOFUSERS
 chmod +x /usr/local/oxgi/modules/users.sh
 
+# MÓDULO V2RAY CON LÓGICA EXACTA DE BLUEBLUE (Sin saltos de línea en base64)
 cat > /usr/local/oxgi/modules/v2ray.sh << 'EOFV2RAY'
 #!/bin/bash
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
@@ -447,10 +447,13 @@ add_vmess() {
     read -p "Días: " days; [[ ! "$days" =~ ^[0-9]+$ ]] && return
     exp=$(date -d "+$days days" +"%Y-%m-%d")
     echo "${name}:${UUID}:vmess:${exp}" >> "$DB"
+    
+    # JSON exacto de Blueblue. tr -d '\n' elimina el salto de línea final del base64
+    JSON="{\"v\":\"2\",\"ps\":\"$name\",\"add\":\"$DOMAIN\",\"port\":\"443\",\"id\":\"$UUID\",\"aid\":\"0\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"$DOMAIN\",\"path\":\"/vmess\",\"tls\":\"tls\"}"
+    B64=$(echo -n "$JSON" | base64 | tr -d '\n')
+    
     echo -e "\n${GREEN}$name${NC} - Exp: $exp"
-    # Formato EXACTO de Blueblue con echo -n para evitar saltos de línea
-    JSON='{"v":"2","ps":"'$name'","add":"'$DOMAIN'","port":"443","id":"'$UUID'","aid":"0","net":"ws","type":"none","host":"'$DOMAIN'","path":"/vmess","tls":"tls"}'
-    echo "vmess://$(echo -n "$JSON" | base64 -w0)"
+    echo "vmess://$B64"
     read -p "ENTER"
 }
 
@@ -482,8 +485,9 @@ add_ss() {
     read -p "Días: " days; [[ ! "$days" =~ ^[0-9]+$ ]] && return
     exp=$(date -d "+$days days" +"%Y-%m-%d")
     echo "${name}:${UUID}:shadowsocks:${exp}" >> "$DB"
+    SS_PASS=$(echo -n "aes-256-gcm:${UUID}" | base64 | tr -d '\n')
     echo -e "\n${GREEN}$name${NC} - Exp: $exp"
-    echo "ss://$(echo -n "aes-256-gcm:${UUID}@${DOMAIN}:443" | base64 -w0)#${name}"
+    echo "ss://${SS_PASS}@${DOMAIN}:443#${name}"
     read -p "ENTER"
 }
 
