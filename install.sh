@@ -5,36 +5,48 @@ export DEBIAN_FRONTEND=noninteractive
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 
 clear
-echo -e "${CYAN}════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}╔════════════════════════════════════════════╗${NC}"
 echo -e "${CYAN}║      ${GREEN}OXGI VPS INSTALLER${NC}${CYAN}                 ║${NC}"
-echo -e "${CYAN}╚════════════════════════════════════════════╝${NC}"
+echo -e "${CYAN}════════════════════════════════════════════╝${NC}"
 
 read -p "Dominio: " DOMAIN
 [[ -z "$DOMAIN" ]] && echo "Dominio requerido" && exit 1
 mkdir -p /etc/oxgi
 echo "$DOMAIN" > /etc/oxgi/domain.conf
 
-echo -e "${YELLOW}[1/10] Actualizando sistema...${NC}"
+echo -e "${YELLOW}[1/12] Actualizando sistema...${NC}"
 apt update -y && apt upgrade -y
 
-echo -e "${YELLOW}[2/10] Instalando Nginx...${NC}"
-apt install -y nginx
-systemctl enable nginx
-systemctl start nginx
+echo -e "${YELLOW}[2/12] Instalando paquetes base...${NC}"
+apt install -y nginx dropbear stunnel4 websockify python3 python3-pip \
+    fail2ban vnstat unzip git curl wget jq bc openssl net-tools \
+    screen cmake g++ make cron
 
-echo -e "${YELLOW}[3/10] Instalando Dropbear...${NC}"
-apt install -y dropbear
+echo -e "${YELLOW}[3/12] Configurando SSH (22)...${NC}"
+systemctl enable ssh
+
+echo -e "${YELLOW}[4/12] Configurando Dropbear (109, 143)...${NC}"
 sed -i 's/NO_START=1/NO_START=0/' /etc/default/dropbear
 sed -i 's/DROPBEAR_PORT=22/DROPBEAR_PORT=109/' /etc/default/dropbear
 systemctl enable dropbear
 systemctl restart dropbear
 
-# Segundo Dropbear en puerto 143
+# Segundo Dropbear en 143
 /usr/sbin/dropbear -p 143 -W 65536
-echo "/usr/sbin/dropbear -p 143 -W 65536" >> /etc/rc.local 2>/dev/null || true
+cat > /etc/systemd/system/dropbear143.service << 'EOF'
+[Unit]
+Description=Dropbear 143
+After=network.target
+[Service]
+ExecStart=/usr/sbin/dropbear -F -p 143 -W 65536
+Restart=on-failure
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable dropbear143
+systemctl restart dropbear143
 
-echo -e "${YELLOW}[4/10] Instalando Stunnel5...${NC}"
-apt install -y stunnel4
+echo -e "${YELLOW}[5/12] Configurando Stunnel (447, 777)...${NC}"
 mkdir -p /etc/stunnel
 openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
     -subj "/C=ID/ST=Jakarta/O=OXGI/CN=localhost" \
@@ -59,15 +71,11 @@ EOF
 cat > /etc/default/stunnel4 << 'EOF'
 ENABLED=1
 FILES="/etc/stunnel/*.conf"
-OPTIONS=""
-PPP_RESTART=0
 EOF
-
 systemctl enable stunnel4
 systemctl restart stunnel4
 
-echo -e "${YELLOW}[5/10] Instalando BadVPN...${NC}"
-apt install -y screen cmake g++ make
+echo -e "${YELLOW}[6/12] Instalando BadVPN (7100-7300)...${NC}"
 mkdir -p /root/badvpn && cd /root/badvpn
 if [[ ! -f "/usr/bin/badvpn-udpgw" ]]; then
     git clone https://github.com/ambrop72/badvpn.git . 2>/dev/null
@@ -91,61 +99,65 @@ EOF
     systemctl restart badvpn-${PORT}
 done
 
-echo -e "${YELLOW}[6/10] Instalando WebSocket...${NC}"
-apt install -y python3 python3-pip
-pip3 install websockets
-
+echo -e "${YELLOW}[7/12] Instalando WebSocket (2090)...${NC}"
 cat > /usr/local/bin/oxgi-ws << 'EOFWS'
 #!/usr/bin/env python3
-import asyncio
-import websockets
 import socket
-import sys
+import threading
 
-async def handle_client(websocket):
+def handle_client(client_socket):
     try:
-        ssh = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        ssh.connect(('127.0.0.1', 22))
-        ssh.setblocking(0)
+        ssh_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        ssh_socket.connect(('127.0.0.1', 22))
         
-        async def ws2ssh():
-            async for msg in websocket:
-                ssh.sendall(msg)
-        
-        async def ssh2ws():
-            while True:
-                await asyncio.sleep(0.01)
-                try:
-                    data = ssh.recv(4096)
-                    if data:
-                        await websocket.send(data)
-                    else:
+        def client_to_ssh():
+            try:
+                while True:
+                    data = client_socket.recv(4096)
+                    if not data:
                         break
-                except BlockingIOError:
-                    await asyncio.sleep(0.01)
-                    continue
-                except:
-                    break
+                    ssh_socket.sendall(data)
+            except:
+                pass
         
-        await asyncio.gather(ws2ssh(), ssh2ws())
+        def ssh_to_client():
+            try:
+                while True:
+                    data = ssh_socket.recv(4096)
+                    if not data:
+                        break
+                    client_socket.sendall(data)
+            except:
+                pass
+        
+        t1 = threading.Thread(target=client_to_ssh)
+        t2 = threading.Thread(target=ssh_to_client)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
     except Exception as e:
         pass
     finally:
         try:
-            websocket.close()
-        except:
-            pass
-        try:
-            ssh.close()
+            client_socket.close()
+            ssh_socket.close()
         except:
             pass
 
-async def main():
-    async with websockets.serve(handle_client, '0.0.0.0', 2090):
-        await asyncio.Future()
+def main():
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind(('0.0.0.0', 2090))
+    server.listen(100)
+    
+    while True:
+        client, addr = server.accept()
+        t = threading.Thread(target=handle_client, args=(client,))
+        t.start()
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    main()
 EOFWS
 chmod +x /usr/local/bin/oxgi-ws
 
@@ -165,7 +177,47 @@ systemctl daemon-reload
 systemctl enable oxgi-ws
 systemctl restart oxgi-ws
 
-echo -e "${YELLOW}[7/10] Configurando Nginx...${NC}"
+echo -e "${YELLOW}[8/12] Instalando Xray...${NC}"
+bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install 2>/dev/null
+UUID=$(cat /proc/sys/kernel/random/uuid)
+echo "$UUID" > /etc/oxgi/xray_uuid
+
+cat > /etc/xray/config.json << EOFXRAY
+{
+  "log": {"loglevel": "warning"},
+  "inbounds": [
+    {
+      "port": 10000,
+      "protocol": "vmess",
+      "settings": {"clients": [{"id": "${UUID}", "level": 0}]},
+      "streamSettings": {"network": "ws", "wsSettings": {"path": "/vmess"}}
+    },
+    {
+      "port": 10001,
+      "protocol": "vless",
+      "settings": {"clients": [{"id": "${UUID}", "level": 0}], "decryption": "none"},
+      "streamSettings": {"network": "ws", "wsSettings": {"path": "/vless"}}
+    },
+    {
+      "port": 10002,
+      "protocol": "trojan",
+      "settings": {"clients": [{"password": "${UUID}", "level": 0}]},
+      "streamSettings": {"network": "ws", "wsSettings": {"path": "/trojan"}}
+    },
+    {
+      "port": 10003,
+      "protocol": "shadowsocks",
+      "settings": {"clients": [{"password": "${UUID}", "method": "aes-256-gcm"}]},
+      "streamSettings": {"network": "ws", "wsSettings": {"path": "/sodosok"}}
+    }
+  ],
+  "outbounds": [{"protocol": "freedom"}]
+}
+EOFXRAY
+systemctl enable xray
+systemctl restart xray
+
+echo -e "${YELLOW}[9/12] Configurando Nginx (80, 81, 443)...${NC}"
 cat > /etc/nginx/sites-available/oxgi << EOF
 map \$http_upgrade \$connection_upgrade { default upgrade; '' close; }
 
@@ -181,9 +233,10 @@ server {
         proxy_set_header Sec-WebSocket-Key \$http_sec_websocket_key;
         proxy_buffering off;
     }
-    location /vless { proxy_pass http://127.0.0.1:10001; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
     location /vmess { proxy_pass http://127.0.0.1:10000; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
+    location /vless { proxy_pass http://127.0.0.1:10001; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
     location /trojan { proxy_pass http://127.0.0.1:10002; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
+    location /sodosok { proxy_pass http://127.0.0.1:10003; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
 }
 
 server {
@@ -201,9 +254,25 @@ server {
         proxy_set_header Sec-WebSocket-Key \$http_sec_websocket_key;
         proxy_buffering off;
     }
-    location /vless { proxy_pass http://127.0.0.1:10001; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
     location /vmess { proxy_pass http://127.0.0.1:10000; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
+    location /vless { proxy_pass http://127.0.0.1:10001; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
     location /trojan { proxy_pass http://127.0.0.1:10002; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
+    location /sodosok { proxy_pass http://127.0.0.1:10003; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
+}
+
+server {
+    listen 81; server_name 127.0.0.1 localhost;
+    root /home/vps/public_html;
+    location / {
+        index index.html index.htm index.php;
+        try_files \$uri \$uri/ /index.php?\$args;
+    }
+    location ~ \.php\$ {
+        include /etc/nginx/fastcgi_params;
+        fastcgi_pass 127.0.0.1:9000;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+    }
 }
 EOF
 
@@ -211,13 +280,27 @@ ln -sf /etc/nginx/sites-available/oxgi /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default
 nginx -t && systemctl restart nginx
 
-echo -e "${YELLOW}[8/10] Instalando SSL...${NC}"
+echo -e "${YELLOW}[10/12] Instalando SSL...${NC}"
 apt install -y certbot python3-certbot-nginx
 systemctl stop nginx
 certbot certonly --standalone -d "$DOMAIN" --non-interactive --agree-tos --email admin@${DOMAIN#*.} 2>/dev/null
 systemctl start nginx
 
-echo -e "${YELLOW}[9/10] Creando módulos...${NC}"
+echo -e "${YELLOW}[11/12] Configurando Fail2Ban...${NC}"
+cat > /etc/fail2ban/jail.local << 'EOF'
+[DEFAULT]
+bantime = 3600
+maxretry = 5
+[sshd]
+enabled = true
+port = 22,109,143
+EOF
+systemctl enable fail2ban
+systemctl restart fail2ban
+
+echo -e "${YELLOW}[12/12] Configurando auto-reboot y módulos...${NC}"
+echo "0 5 * * * /sbin/reboot" | crontab -
+
 mkdir -p /usr/local/oxgi/modules
 
 cat > /usr/local/oxgi/modules/users.sh << 'EOFUSER'
@@ -290,10 +373,10 @@ chmod +x /usr/local/oxgi/modules/users.sh
 cat > /usr/local/oxgi/modules/v2ray.sh << 'EOFV2RAY'
 #!/bin/bash
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
-source /etc/oxgi/config.conf 2>/dev/null || DOMAIN=$(cat /etc/oxgi/domain.conf)
+DOMAIN=$(cat /etc/oxgi/domain.conf)
+UUID=$(cat /etc/oxgi/xray_uuid)
 DB="/etc/oxgi/v2ray.db"
 mkdir -p /etc/oxgi && touch "$DB"
-UUID=$(cat /proc/sys/kernel/random/uuid)
 
 add_vmess() {
     clear; echo -e "${CYAN}VMESS${NC}\n"
@@ -322,26 +405,36 @@ add_trojan() {
     read -p "Nombre: " name; [[ -z "$name" ]] && return
     read -p "Días: " days; [[ ! "$days" =~ ^[0-9]+$ ]] && return
     exp=$(date -d "+$days days" +"%Y-%m-%d")
-    pass=$(echo "$name$UUID" | md5sum | awk '{print $1}')
-    echo "${name}:${pass}:trojan:${exp}" >> "$DB"
-    echo -e "\n${GREEN}$name${NC} - Pass: $pass - Exp: $exp"
-    echo "trojan://${pass}@${DOMAIN}:443?security=tls&type=ws&path=/trojan#${name}"
+    echo "${name}:${UUID}:trojan:${exp}" >> "$DB"
+    echo -e "\n${GREEN}$name${NC} - Exp: $exp"
+    echo "trojan://${UUID}@${DOMAIN}:443?security=tls&type=ws&path=/trojan#${name}"
+    read -p "ENTER"
+}
+
+add_ss() {
+    clear; echo -e "${CYAN}SHADOWSOCKS${NC}\n"
+    read -p "Nombre: " name; [[ -z "$name" ]] && return
+    read -p "Días: " days; [[ ! "$days" =~ ^[0-9]+$ ]] && return
+    exp=$(date -d "+$days days" +"%Y-%m-%d")
+    echo "${name}:${UUID}:shadowsocks:${exp}" >> "$DB"
+    echo -e "\n${GREEN}$name${NC} - Exp: $exp"
+    echo "ss://$(echo "aes-256-gcm:${UUID}@${DOMAIN}:443" | base64 -w0)#${name}"
     read -p "ENTER"
 }
 
 lista() {
     clear; echo -e "${CYAN}V2RAY USERS${NC}\n"
     [[ ! -s "$DB" ]] && { echo "Sin usuarios"; read -p "ENTER"; return; }
-    printf "%-15s %-10s %-20s\n" "USER" "TYPE" "EXPIRA"
-    while IFS=':' read -r n u t e; do printf "%-15s %-10s %-20s\n" "$n" "$t" "$e"; done < "$DB"
+    printf "%-15s %-15s %-20s\n" "USER" "TYPE" "EXPIRA"
+    while IFS=':' read -r n u t e; do printf "%-15s %-15s %-20s\n" "$n" "$t" "$e"; done < "$DB"
     read -p "ENTER"
 }
 
 while true; do
     clear; echo -e "${CYAN}V2RAY MANAGER${NC}\n"
-    echo "[1] VMESS [2] VLESS [3] TROJAN [4] Lista [0] Salir"
+    echo "[1] VMESS [2] VLESS [3] TROJAN [4] Shadowsocks [5] Lista [0] Salir"
     read -p "Opción: " o
-    case $o in 1) add_vmess;; 2) add_vless;; 3) add_trojan;; 4) lista;; 0) exit 0;; esac
+    case $o in 1) add_vmess;; 2) add_vless;; 3) add_trojan;; 4) add_ss;; 5) lista;; 0) exit 0;; esac
 done
 EOFV2RAY
 chmod +x /usr/local/oxgi/modules/v2ray.sh
@@ -351,7 +444,7 @@ cat > /usr/local/oxgi/modules/nginx.sh << 'EOFNGINX'
 RED='\033[0;31m'; GREEN='\033[0;32m'; NC='\033[0m'
 while true; do
     clear; echo -e "${GREEN}NGINX MANAGER${NC}\n"
-    echo "[1] Restart [2] Stop [3] Start [4] Status [5] Test Config [0] Exit"
+    echo "[1] Restart [2] Stop [3] Start [4] Status [5] Test [0] Exit"
     read -p "Option: " o
     case $o in
         1) systemctl restart nginx; echo "Done"; read -p "ENTER";;
@@ -386,7 +479,6 @@ chmod +x /usr/local/oxgi/modules/websocket.sh
 
 cat > /usr/local/bin/oxgi << 'EOFMENU'
 #!/bin/bash
-source /etc/oxgi/config.conf 2>/dev/null
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 
 while true; do
@@ -410,9 +502,9 @@ while true; do
         2) bash /usr/local/oxgi/modules/v2ray.sh ;;
         3) bash /usr/local/oxgi/modules/nginx.sh ;;
         4) bash /usr/local/oxgi/modules/websocket.sh ;;
-        5) systemctl restart nginx oxgi-ws dropbear stunnel4; echo -e "${GREEN}Done${NC}"; read -p "ENTER" ;;
-        6) systemctl status nginx oxgi-ws dropbear stunnel4 --no-pager -l; read -p "ENTER" ;;
-        7) netstat -tlnp | grep -E ':(22|80|109|143|443|447|777|7100|7200|7300|2090)'; read -p "ENTER" ;;
+        5) systemctl restart nginx oxgi-ws dropbear dropbear143 stunnel4 xray; echo -e "${GREEN}Done${NC}"; read -p "ENTER" ;;
+        6) systemctl status nginx oxgi-ws dropbear dropbear143 stunnel4 xray --no-pager -l; read -p "ENTER" ;;
+        7) netstat -tlnp | grep -E ':(22|80|109|143|443|447|777|7100|7200|7300|2090|81)'; read -p "ENTER" ;;
         8) echo "Uptime:"; uptime; echo; free -h; echo; df -h; read -p "ENTER" ;;
         0) clear; exit 0 ;;
     esac
@@ -420,14 +512,13 @@ done
 EOFMENU
 chmod +x /usr/local/bin/oxgi
 
-echo -e "${YELLOW}[10/10] Verificando...${NC}"
-sleep 3
-echo ""
+clear
 echo -e "${GREEN}════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}   INSTALACIÓN COMPLETADA${NC}"
 echo -e "${GREEN}════════════════════════════════════════════╝${NC}"
 echo -e "SSH: ${GREEN}22${NC} | WS: ${GREEN}80,443${NC} | Dropbear: ${GREEN}109,143${NC}"
 echo -e "Stunnel: ${GREEN}447,777${NC} | BadVPN: ${GREEN}7100-7300${NC}"
-echo -e "WebSocket: ${GREEN}2090${NC}"
+echo -e "WebSocket: ${GREEN}2090${NC} | Nginx: ${GREEN}81${NC}"
+echo -e "XRAY: ${GREEN}80,443${NC}"
 echo ""
 echo -e "${YELLOW}Ejecuta:${NC} ${GREEN}oxgi${NC}"
