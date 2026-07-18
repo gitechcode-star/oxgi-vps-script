@@ -53,7 +53,6 @@ systemctl daemon-reload
 systemctl enable dropbear
 systemctl restart dropbear
 
-# Segundo Dropbear en 143
 pkill -9 dropbear || true
 sleep 1
 /usr/local/sbin/dropbear -p 143 -W 65536
@@ -87,7 +86,6 @@ FILES="/etc/stunnel/*.conf"
 OPTIONS="-p /etc/stunnel/stunnel.pem"
 EOF
 
-# Limpiar puertos colgados y reiniciar stunnel
 pkill -9 stunnel4 || true
 fuser -k 447/tcp 777/tcp 2>/dev/null || true
 sleep 2
@@ -118,70 +116,90 @@ EOF
     systemctl restart badvpn-${PORT}
 done
 
-echo -e "${YELLOW}[6/10] Instalando WebSocket (API Corregida)...${NC}"
+echo -e "${YELLOW}[6/10] Instalando WebSocket...${NC}"
 pip3 install --upgrade websockets > /dev/null 2>&1
 
-# SCRIPT PYTHON CORREGIDO PARA WEBSOCKETS >= 10.0 (Sin argumento 'path')
+# WEBSOCKET PYTHON CORREGIDO - Maneja correctamente el handshake
 cat > /usr/local/bin/ws-stunnel << 'EOFWS'
 #!/usr/bin/env python3
 import asyncio
 import websockets
 import socket
 import sys
+import logging
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+async def forward_data(reader, writer):
+    """Forward data from reader to writer"""
+    try:
+        while True:
+            data = await reader.read(4096)
+            if not data:
+                break
+            writer.write(data)
+            await writer.drain()
+    except Exception as e:
+        logging.debug(f"Forward error: {e}")
 
 async def handle_client(websocket):
+    """Handle WebSocket client connection"""
+    ssh_socket = None
     try:
-        ssh = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        ssh.connect(('127.0.0.1', 22))
-        ssh.setblocking(0)
+        # Conectar a SSH local
+        ssh_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        ssh_socket.connect(('127.0.0.1', 22))
+        ssh_socket.setblocking(False)
         
-        async def ws2ssh():
-            try:
-                async for msg in websocket:
-                    ssh.sendall(msg)
-            except:
-                pass
-                
-        async def ssh2ws():
-            try:
-                while True:
-                    await asyncio.sleep(0.01)
-                    try:
-                        data = ssh.recv(4096)
-                        if data:
-                            await websocket.send(data)
-                        else:
-                            break
-                    except BlockingIOError:
-                        await asyncio.sleep(0.01)
-                        continue
-                    except:
-                        break
-            except:
-                pass
-                
-        await asyncio.gather(ws2ssh(), ssh2ws())
+        logging.info(f"New connection from {websocket.remote_address}")
+        
+        # Crear streams para WebSocket
+        reader = asyncio.StreamReader()
+        protocol = asyncio.StreamReaderProtocol(reader)
+        loop = asyncio.get_event_loop()
+        await loop.connect_accepted_socket(protocol, ssh_socket)
+        
+        # Forward bidireccional
+        ws_to_ssh = asyncio.create_task(forward_data(websocket, ssh_socket))
+        ssh_to_ws = asyncio.create_task(forward_data(ssh_socket, websocket))
+        
+        await asyncio.gather(ws_to_ssh, ssh_to_ws, return_exceptions=True)
+        
     except Exception as e:
-        pass
+        logging.error(f"Handler error: {e}")
     finally:
+        if ssh_socket:
+            try:
+                ssh_socket.close()
+            except:
+                pass
         try:
             await websocket.close()
         except:
             pass
-        try:
-            ssh.close()
-        except:
-            pass
 
 async def main():
-    async with websockets.serve(handle_client, '0.0.0.0', 2090):
+    """Main WebSocket server"""
+    logging.info("Starting WebSocket server on port 2090...")
+    
+    async with websockets.serve(
+        handle_client,
+        '0.0.0.0',
+        2090,
+        ping_interval=20,
+        ping_timeout=20
+    ):
         await asyncio.Future()
 
 if __name__ == '__main__':
     try:
         asyncio.run(main())
+    except KeyboardInterrupt:
+        logging.info("Server stopped")
     except Exception as e:
-        print(f"WebSocket Error: {e}", file=sys.stderr)
+        logging.error(f"Server error: {e}")
+        sys.exit(1)
 EOFWS
 chmod +x /usr/local/bin/ws-stunnel
 
