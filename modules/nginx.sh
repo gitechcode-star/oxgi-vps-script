@@ -1,76 +1,145 @@
 #!/bin/bash
+# ==========================================
+# Nginx Configuration Module with WebSocket Support
+# ==========================================
 
-if [[ $EUID -ne 0 ]]; then
-   echo -e "\e[31m[ERROR] Requiere root.${NC}\e[0m"
-   exit 1
-fi
-
-GREEN='\033[1;32m'
-RED='\033[1;31m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+source /etc/oxgi/config.conf
 
 install_nginx() {
-    clear
-    echo -e "${GREEN}══════════════════════════════════════${NC}"
-    echo -e "      INSTALANDO NGINX"
-    echo -e "${GREEN}══════════════════════════════════════${NC}"
+    echo -e "${BLUE}Installing Nginx...${NC}"
+    apt-get update
+    apt-get install -y nginx
+    systemctl enable nginx
+    echo -e "${GREEN}Nginx installed successfully${NC}"
+}
+
+configure_nginx_websocket() {
+    echo -e "${BLUE}Configuring Nginx for WebSocket...${NC}"
     
-    apt update -y > /dev/null 2>&1
-    apt install -y nginx > /dev/null 2>&1
+    # Create Nginx WebSocket configuration
+    cat > /etc/nginx/sites-available/websocket << EOF
+server {
+    listen ${HTTP_PORT};
+    listen [::]:${HTTP_PORT};
+    server_name ${DOMAIN};
+
+    # Redirect HTTP to HTTPS
+    return 301 https://\$server_name:${HTTPS_PORT}\$request_uri;
+}
+
+server {
+    listen ${HTTPS_PORT} ssl http2;
+    listen [::]:${HTTPS_PORT} ssl http2;
+    server_name ${DOMAIN};
+
+    # SSL Configuration
+    ssl_certificate ${SSL_CERT};
+    ssl_certificate_key ${SSL_KEY};
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    ssl_session_tickets off;
+
+    # OCSP Stapling
+    ssl_stapling on;
+    ssl_stapling_verify on;
+
+    # Security Headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    # WebSocket Configuration
+    location / {
+        proxy_pass http://127.0.0.1:${PROXY_PORT};
+        proxy_http_version 1.1;
+        
+        # CRITICAL: WebSocket headers - This fixes the "Missing Sec-WebSocket-Version header" error
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        
+        # WebSocket timeouts
+        proxy_connect_timeout 86400s;
+        proxy_send_timeout 86400s;
+        proxy_read_timeout 86400s;
+        
+        # Disable buffering for WebSocket
+        proxy_buffering off;
+        proxy_cache_bypass \$http_upgrade;
+        proxy_request_buffering off;
+        
+        # TCP nodelay for better performance
+        proxy_socket_keepalive on;
+    }
+
+    # Health check endpoint
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+
+    # Error pages
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
     
-    systemctl enable nginx > /dev/null 2>&1
-    systemctl start nginx
+    location ~ ^/(404|50x)\.html$ {
+        root /usr/share/nginx/html;
+        internal;
+    }
+}
+EOF
+
+    # Enable site
+    ln -sf /etc/nginx/sites-available/websocket /etc/nginx/sites-enabled/websocket
+    rm -f /etc/nginx/sites-enabled/default
     
-    if command -v ufw > /dev/null; then
-        ufw allow 'Nginx Full' > /dev/null 2>&1
+    # Test configuration
+    nginx -t
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Nginx WebSocket configuration completed${NC}"
+    else
+        echo -e "${RED}Nginx configuration test failed${NC}"
+        exit 1
     fi
-    
-    echo -e "${GREEN}[OK] Nginx instalado y activo.${NC}"
-    read -p "Presiona ENTER..."
 }
 
 restart_nginx() {
+    echo -e "${BLUE}Restarting Nginx...${NC}"
     systemctl restart nginx
-    echo -e "${GREEN}[OK] Nginx reiniciado.${NC}"
-    read -p "Presiona ENTER..."
+    sleep 2
+    
+    if systemctl is-active --quiet nginx; then
+        echo -e "${GREEN}✓ Nginx running successfully${NC}"
+    else
+        echo -e "${RED}✗ Nginx failed to start${NC}"
+        echo -e "${YELLOW}Check logs: journalctl -u nginx${NC}"
+    fi
 }
 
-status_nginx() {
-    clear
-    echo -e "${GREEN}► Estado:$(systemctl is-active nginx > /dev/null && echo -e " ${GREEN}[ACTIVO]${NC}" || echo -e " ${RED}[INACTIVO]${NC}")"
-    echo ""
-    ss -tulpn | grep ':80\|:443'
-    read -p "Presiona ENTER..."
+# Main execution
+main() {
+    echo -e "${BLUE}========================================${NC}"
+    echo -e "${BLUE}  Nginx WebSocket Configuration${NC}"
+    echo -e "${BLUE}========================================${NC}"
+    
+    install_nginx
+    configure_nginx_websocket
+    restart_nginx
+    
+    echo -e "${GREEN}========================================${NC}"
+    echo -e "${GREEN}  Configuration Complete!${NC}"
+    echo -e "${GREEN}========================================${NC}"
+    echo -e "${YELLOW}WebSocket: wss://${DOMAIN}:${HTTPS_PORT}${NC}"
 }
 
-test_config() {
-    echo -e "${YELLOW}[*] Probando configuración...${NC}"
-    nginx -t
-    read -p "Presiona ENTER..."
-}
-
-while true; do
-    clear
-    echo "══════════════════════════════════════"
-    echo -e "        ${GREEN}NGINX MANAGER${NC}"
-    echo "══════════════════════════════════════"
-    echo ""
-    echo -e "  [1] ${GREEN}Instalar Nginx${NC}"
-    echo -e "  [2] ${YELLOW}Reiniciar${NC}"
-    echo -e "  [3] ${YELLOW}Ver Estado${NC}"
-    echo -e "  [4] ${YELLOW}Probar Config${NC}"
-    echo ""
-    echo -e "  [0] ${NC}Regresar"
-    echo "══════════════════════════════════════"
-    read -p "Opción [0-4]: " opt
-
-    case $opt in
-        1) install_nginx ;;
-        2) restart_nginx ;;
-        3) status_nginx ;;
-        4) test_config ;;
-        0) break ;;
-        *) echo -e "${RED}Inválida${NC}"; sleep 1 ;;
-    esac
-done
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi
