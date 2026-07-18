@@ -77,7 +77,7 @@ EOF
 pkill -9 stunnel4 || true; sleep 2
 systemctl enable stunnel4 && systemctl restart stunnel4
 
-echo -e "${YELLOW}[5/10] Instalando BadVPN...${NC}"
+echo -e "${YELLOW}[5/10] Instalando BadVPN (UDP)...${NC}"
 mkdir -p /root/badvpn && cd /root/badvpn
 if [[ ! -f "/usr/bin/badvpn-udpgw" ]]; then
     git clone https://github.com/ambrop72/badvpn.git . > /dev/null 2>&1
@@ -89,9 +89,9 @@ fi
 for PORT in 7100 7200 7300; do
     cat > /etc/systemd/system/badvpn-${PORT}.service << EOF
 [Unit]
-Description=BadVPN ${PORT}
+Description=BadVPN UDPGW ${PORT}
 [Service]
-ExecStart=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:${PORT} --max-clients 1000
+ExecStart=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:${PORT} --max-clients 1000 --max-connections-for-client 10
 Restart=on-failure
 [Install]
 WantedBy=multi-user.target
@@ -99,9 +99,7 @@ EOF
     systemctl enable badvpn-${PORT} && systemctl restart badvpn-${PORT}
 done
 
-echo -e "${YELLOW}[6/10] Instalando WebSocket (Lógica EXACTA de Blueblue)...${NC}"
-# Este es el script ws-stunnel de Blueblue, adaptado a Python 3 para compatibilidad moderna
-# Hace un "fake handshake" y luego reenvío TCP ciego, exactamente como lo hace Blueblue.
+echo -e "${YELLOW}[6/10] Instalando WebSocket...${NC}"
 cat > /usr/local/bin/ws-stunnel << 'EOFWS'
 #!/usr/bin/env python3
 import socket, threading, select, sys, time
@@ -157,7 +155,6 @@ class ConnectionHandler(threading.Thread):
         self.targetClosed = True
         self.client = socClient
         self.server = server
-        self.log = f'Connection: {addr}'
 
     def close(self):
         try:
@@ -184,8 +181,7 @@ class ConnectionHandler(threading.Thread):
                 self.client.send(b'HTTP/1.1 400 WrongPass!\r\n\r\n')
             else:
                 self.method_CONNECT(hostPort.decode())
-        except Exception as e:
-            pass
+        except: pass
         finally:
             self.close()
             with self.server.threadsLock:
@@ -248,7 +244,7 @@ chmod +x /usr/local/bin/ws-stunnel
 
 cat > /etc/systemd/system/ws-stunnel.service << 'EOF'
 [Unit]
-Description=WebSocket Stunnel (Blueblue Logic)
+Description=WebSocket Stunnel
 After=network.target ssh.service
 [Service]
 Type=simple
@@ -362,7 +358,170 @@ EOFOXGI
 chmod +x /usr/local/oxgi/modules/oxgi.sh
 ln -sf /usr/local/oxgi/modules/oxgi.sh /usr/local/bin/oxgi
 
-# (Asume que users.sh, v2ray.sh, nginx.sh, websocket.sh ya están creados como en la respuesta anterior)
+cat > /usr/local/oxgi/modules/users.sh << 'EOFUSERS'
+#!/bin/bash
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
+DB="/etc/oxgi/ssh_users.db"
+mkdir -p /etc/oxgi && touch "$DB"
+crear() {
+    clear; echo -e "${CYAN}CREAR USUARIO SSH${NC}\n"
+    read -p "Usuario: " user
+    [[ ! "$user" =~ ^[a-zA-Z0-9_]+$ ]] || [[ ${#user} -lt 3 ]] && { echo -e "${RED}Inválido${NC}"; read -p "ENTER"; return; }
+    id "$user" &>/dev/null && { echo -e "${RED}Existe${NC}"; read -p "ENTER"; return; }
+    read -p "Password (blank=auto): " pass
+    [[ -z "$pass" ]] && pass=$(openssl rand -base64 10 | tr -dc 'a-zA-Z0-9' | head -c8)
+    echo -e "\n[1] Minutos [2] Horas [3] Días [4] Meses [5] Años"
+    read -p "Unidad: " u
+    case $u in 1) m=60;; 2) m=3600;; 3) m=86400;; 4) m=2592000;; 5) m=31536000;; *) echo "Inválido"; return;; esac
+    read -p "Cantidad: " c
+    [[ ! "$c" =~ ^[0-9]+$ ]] && { echo "Inválido"; return; }
+    read -p "Max dispositivos: " dev
+    [[ ! "$dev" =~ ^[0-9]+$ ]] && { echo "Inválido"; return; }
+    exp=$(date -d "+$((c*m)) seconds" +"%Y-%m-%d %H:%M:%S")
+    expd=$(echo "$exp" | cut -d' ' -f1)
+    useradd -e "$expd" -s /bin/false -M "$user"
+    echo "$user:$pass" | chpasswd
+    echo "${user}:$(date +%s):${exp}:${dev}" >> "$DB"
+    echo -e "\n${GREEN}Creado:${NC} $user | Pass: $pass | Exp: $exp | Dev: $dev"
+    read -p "ENTER"
+}
+eliminar() {
+    clear; echo -e "${CYAN}ELIMINAR USUARIO${NC}\n"
+    read -p "Usuario: " user
+    id "$user" &>/dev/null || { echo -e "${RED}No existe${NC}"; read -p "ENTER"; return; }
+    userdel -r "$user" 2>/dev/null
+    sed -i "/^${user}:/d" "$DB"
+    echo -e "${GREEN}Eliminado${NC}"; read -p "ENTER"
+}
+lista() {
+    clear; echo -e "${CYAN}USUARIOS${NC}\n"
+    [[ ! -s "$DB" ]] && { echo "Sin usuarios"; read -p "ENTER"; return; }
+    printf "%-15s %-25s %-5s\n" "USER" "EXPIRA" "DEV"
+    while IFS=':' read -r u t e d; do printf "%-15s %-25s %-5s\n" "$u" "$e" "$d"; done < "$DB"
+    read -p "ENTER"
+}
+online() {
+    clear; echo -e "${CYAN}ONLINE${NC}\n"
+    who | awk '{print $1}' | sort | uniq -c
+    read -p "ENTER"
+}
+while true; do
+    clear; echo -e "${CYAN}USER MANAGER${NC}\n"
+    echo "[1] Crear [2] Eliminar [3] Lista [4] Online [0] Salir"
+    read -p "Opción: " o
+    case $o in 1) crear;; 2) eliminar;; 3) lista;; 4) online;; 0) exit 0;; esac
+done
+EOFUSERS
+chmod +x /usr/local/oxgi/modules/users.sh
+
+cat > /usr/local/oxgi/modules/v2ray.sh << 'EOFV2RAY'
+#!/bin/bash
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
+DOMAIN=$(cat /etc/oxgi/domain.conf)
+UUID=$(cat /etc/oxgi/xray_uuid)
+DB="/etc/oxgi/v2ray.db"
+mkdir -p /etc/oxgi && touch "$DB"
+
+add_vmess() {
+    clear; echo -e "${CYAN}VMESS${NC}\n"
+    read -p "Nombre: " name; [[ -z "$name" ]] && return
+    read -p "Días: " days; [[ ! "$days" =~ ^[0-9]+$ ]] && return
+    exp=$(date -d "+$days days" +"%Y-%m-%d")
+    echo "${name}:${UUID}:vmess:${exp}" >> "$DB"
+    echo -e "\n${GREEN}$name${NC} - Exp: $exp"
+    # Formato EXACTO de Blueblue con echo -n para evitar saltos de línea
+    JSON='{"v":"2","ps":"'$name'","add":"'$DOMAIN'","port":"443","id":"'$UUID'","aid":"0","net":"ws","type":"none","host":"'$DOMAIN'","path":"/vmess","tls":"tls"}'
+    echo "vmess://$(echo -n "$JSON" | base64 -w0)"
+    read -p "ENTER"
+}
+
+add_vless() {
+    clear; echo -e "${CYAN}VLESS${NC}\n"
+    read -p "Nombre: " name; [[ -z "$name" ]] && return
+    read -p "Días: " days; [[ ! "$days" =~ ^[0-9]+$ ]] && return
+    exp=$(date -d "+$days days" +"%Y-%m-%d")
+    echo "${name}:${UUID}:vless:${exp}" >> "$DB"
+    echo -e "\n${GREEN}$name${NC} - Exp: $exp"
+    echo "vless://${UUID}@${DOMAIN}:443?encryption=none&security=tls&type=ws&path=/vless&host=${DOMAIN}#${name}"
+    read -p "ENTER"
+}
+
+add_trojan() {
+    clear; echo -e "${CYAN}TROJAN${NC}\n"
+    read -p "Nombre: " name; [[ -z "$name" ]] && return
+    read -p "Días: " days; [[ ! "$days" =~ ^[0-9]+$ ]] && return
+    exp=$(date -d "+$days days" +"%Y-%m-%d")
+    echo "${name}:${UUID}:trojan:${exp}" >> "$DB"
+    echo -e "\n${GREEN}$name${NC} - Exp: $exp"
+    echo "trojan://${UUID}@${DOMAIN}:443?security=tls&type=ws&path=/trojan&sni=${DOMAIN}#${name}"
+    read -p "ENTER"
+}
+
+add_ss() {
+    clear; echo -e "${CYAN}SHADOWSOCKS${NC}\n"
+    read -p "Nombre: " name; [[ -z "$name" ]] && return
+    read -p "Días: " days; [[ ! "$days" =~ ^[0-9]+$ ]] && return
+    exp=$(date -d "+$days days" +"%Y-%m-%d")
+    echo "${name}:${UUID}:shadowsocks:${exp}" >> "$DB"
+    echo -e "\n${GREEN}$name${NC} - Exp: $exp"
+    echo "ss://$(echo -n "aes-256-gcm:${UUID}@${DOMAIN}:443" | base64 -w0)#${name}"
+    read -p "ENTER"
+}
+
+lista() {
+    clear; echo -e "${CYAN}V2RAY USERS${NC}\n"
+    [[ ! -s "$DB" ]] && { echo "Sin usuarios"; read -p "ENTER"; return; }
+    printf "%-15s %-15s %-20s\n" "USER" "TYPE" "EXPIRA"
+    while IFS=':' read -r n u t e; do printf "%-15s %-15s %-20s\n" "$n" "$t" "$e"; done < "$DB"
+    read -p "ENTER"
+}
+
+while true; do
+    clear; echo -e "${CYAN}V2RAY MANAGER${NC}\n"
+    echo "[1] VMESS [2] VLESS [3] TROJAN [4] Shadowsocks [5] Lista [0] Salir"
+    read -p "Opción: " o
+    case $o in 1) add_vmess;; 2) add_vless;; 3) add_trojan;; 4) add_ss;; 5) lista;; 0) exit 0;; esac
+done
+EOFV2RAY
+chmod +x /usr/local/oxgi/modules/v2ray.sh
+
+cat > /usr/local/oxgi/modules/nginx.sh << 'EOFNGINX'
+#!/bin/bash
+RED='\033[0;31m'; GREEN='\033[0;32m'; NC='\033[0m'
+while true; do
+    clear; echo -e "${GREEN}NGINX MANAGER${NC}\n"
+    echo "[1] Restart [2] Stop [3] Start [4] Status [5] Test [0] Exit"
+    read -p "Option: " o
+    case $o in
+        1) systemctl restart nginx; echo "Done"; read -p "ENTER";;
+        2) systemctl stop nginx; echo "Done"; read -p "ENTER";;
+        3) systemctl start nginx; echo "Done"; read -p "ENTER";;
+        4) systemctl status nginx --no-pager; read -p "ENTER";;
+        5) nginx -t; read -p "ENTER";;
+        0) exit 0;;
+    esac
+done
+EOFNGINX
+chmod +x /usr/local/oxgi/modules/nginx.sh
+
+cat > /usr/local/oxgi/modules/websocket.sh << 'EOFWSMOD'
+#!/bin/bash
+RED='\033[0;31m'; GREEN='\033[0;32m'; NC='\033[0m'
+while true; do
+    clear; echo -e "${GREEN}WEBSOCKET MANAGER${NC}\n"
+    echo "[1] Restart [2] Stop [3] Start [4] Status [5] Logs [0] Exit"
+    read -p "Option: " o
+    case $o in
+        1) systemctl restart ws-stunnel; echo "Done"; read -p "ENTER";;
+        2) systemctl stop ws-stunnel; echo "Done"; read -p "ENTER";;
+        3) systemctl start ws-stunnel; echo "Done"; read -p "ENTER";;
+        4) systemctl status ws-stunnel --no-pager; read -p "ENTER";;
+        5) journalctl -u ws-stunnel -n 30 --no-pager; read -p "ENTER";;
+        0) exit 0;;
+    esac
+done
+EOFWSMOD
+chmod +x /usr/local/oxgi/modules/websocket.sh
 
 clear
 echo -e "${GREEN}══════════════════════════════════════════╗${NC}"
