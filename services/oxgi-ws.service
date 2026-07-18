@@ -1,13 +1,12 @@
 [Unit]
-Description=OXGI WebSocket Proxy Service
+Description=OXGI WebSocket Service (Python)
 After=network.target ssh.service
 Wants=ssh.service
 
 [Service]
 Type=simple
 User=root
-ExecStart=/usr/bin/websockify 8080 127.0.0.1:22
-ExecReload=/bin/kill -HUP $MAINPID
+ExecStart=/usr/bin/python3 /usr/local/bin/oxgi-ws
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
