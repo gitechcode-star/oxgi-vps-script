@@ -1,173 +1,180 @@
 #!/bin/bash
-
-if [[ $EUID -ne 0 ]]; then
-   echo -e "\e[31m[ERROR] Requiere root.${NC}\e[0m"
-   exit 1
-fi
-
-GREEN='\033[1;32m'
-RED='\033[1;31m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+source /etc/oxgi/config.conf
+source /usr/local/oxgi/modules/color.sh
+source /usr/local/oxgi/modules/header.sh
 
 install_nginx() {
-    clear
-    echo -e "${GREEN}══════════════════════════════════════${NC}"
-    echo -e "      INSTALANDO NGINX"
-    echo -e "${GREEN}══════════════════════════════════════${NC}"
-    
-    apt update -y > /dev/null 2>&1
-    apt install -y nginx > /dev/null 2>&1
-    
+    echo -e "${INFO} Instalando Nginx..."
+    apt-get update -y > /dev/null 2>&1
+    apt-get install -y nginx > /dev/null 2>&1
     systemctl enable nginx > /dev/null 2>&1
-    systemctl start nginx
+}
+
+configure_nginx() {
+    echo -e "${INFO} Configurando Nginx (Puertos 80, 81, 443)..."
     
-    if command -v ufw > /dev/null; then
-        ufw allow 'Nginx Full' > /dev/null 2>&1
-    fi
-    
-    echo -e "${GREEN}[OK] Nginx instalado y activo.${NC}"
-    read -p "Presiona ENTER..."
-}
-
-restart_nginx() {
-    systemctl restart nginx
-    echo -e "${GREEN}[OK] Nginx reiniciado.${NC}"
-    read -p "Presiona ENTER..."
-}
-
-status_nginx() {
-    clear
-    echo -e "${GREEN}► Estado:$(systemctl is-active nginx > /dev/null && echo -e " ${GREEN}[ACTIVO]${NC}" || echo -e " ${RED}[INACTIVO]${NC}")"
-    echo ""
-    ss -tulpn | grep ':80\|:443'
-    read -p "Presiona ENTER..."
-}
-
-test_config() {
-    echo -e "${YELLOW}[*] Probando configuración...${NC}"
-    nginx -t
-    read -p "Presiona ENTER..."
-}
-
-# Nueva función: Configurar Nginx con SSL para WebSocket
-setup_ssl_websocket() {
-    clear
-    echo -e "${GREEN}══════════════════════════════════════${NC}"
-    echo -e "  CONFIGURAR SSL + WEBSOCKET EN NGINX"
-    echo -e "${GREEN}══════════════════════════════════════${NC}"
-    echo ""
-    
-    read -p "Dominio (ej: tu-dominio.com): " DOMAIN
-    if [[ -z "$DOMAIN" ]]; then
-        echo -e "${RED}[!] Dominio requerido.${NC}"
-        read -p "Presiona ENTER..."
+    if [[ ! -f /etc/oxgi/domain.conf ]]; then
+        echo -e "${EROR} No se encontró /etc/oxgi/domain.conf"
         return 1
     fi
-    
-    # Verificar que existan certificados
-    CERT_PATH="/etc/letsencrypt/live/${DOMAIN}"
-    if [[ ! -f "${CERT_PATH}/fullchain.pem" ]]; then
-        echo -e "${RED}[!] No se encontró certificado SSL para ${DOMAIN}.${NC}"
-        echo -e "${YELLOW}    Ejecuta primero 'Solicitar Certificado SSL' en el menú SSL.${NC}"
-        read -p "Presiona ENTER..."
-        return 1
-    fi
-    
-    # Crear configuración SSL para WebSocket
-    cat > /etc/nginx/sites-available/websocket-ssl << EOF
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name ${DOMAIN};
+    DOMAIN=$(cat /etc/oxgi/domain.conf)
 
-    # Certificados SSL
-    ssl_certificate ${CERT_PATH}/fullchain.pem;
-    ssl_certificate_key ${CERT_PATH}/privkey.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-    ssl_prefer_server_ciphers on;
+    cat > /etc/nginx/nginx.conf << 'EOFNGINX'
+user www-data;
+worker_processes 1;
+pid /var/run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
 
-    # WebSocket proxy
-    proxy_buffering off;
-    proxy_request_buffering off;
-
-    location / {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_http_version 1.1;
-        
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        
-        proxy_read_timeout 86400s;
-        proxy_send_timeout 86400s;
-        proxy_connect_timeout 60s;
-        proxy_cache_bypass \$http_upgrade;
-    }
-
-    location /health {
-        access_log off;
-        return 200 "OK\n";
-        add_header Content-Type text/plain;
-    }
+events {
+    multi_accept on;
+    worker_connections 1024;
 }
 
-# Redirección HTTP a HTTPS
+http {
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    types_hash_max_size 2048;
+    server_tokens off;
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+    gzip on;
+    gzip_vary on;
+    gzip_comp_level 5;
+    gzip_types text/plain application/x-javascript text/xml text/css;
+    client_max_body_size 32M;
+    client_header_buffer_size 8m;
+    large_client_header_buffers 8 8m;
+    
+    # Cloudflare IP Ranges
+    set_real_ip_from 204.93.240.0/24;
+    set_real_ip_from 204.93.177.0/24;
+    set_real_ip_from 199.27.128.0/21;
+    set_real_ip_from 173.245.48.0/20;
+    set_real_ip_from 103.21.244.0/22;
+    set_real_ip_from 103.22.200.0/22;
+    set_real_ip_from 103.31.4.0/22;
+    set_real_ip_from 141.101.64.0/18;
+    set_real_ip_from 108.162.192.0/18;
+    set_real_ip_from 190.93.240.0/20;
+    set_real_ip_from 188.114.96.0/20;
+    set_real_ip_from 197.234.240.0/22;
+    set_real_ip_from 198.41.128.0/17;
+    real_ip_header CF-Connecting-IP;
+
+    include /etc/nginx/conf.d/*.conf;
+}
+EOFNGINX
+
+    cat > /etc/nginx/conf.d/websocket.conf << EOFWS
+map \$http_upgrade \$connection_upgrade {
+    default upgrade;
+    '' close;
+}
+
 server {
     listen 80;
-    listen [::]:80;
-    server_name ${DOMAIN};
-    return 301 https://\$server_name\$request_uri;
+    server_name ${DOMAIN} _;
+    
+    location / {
+        proxy_pass http://127.0.0.1:${WS_BACKEND_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$connection_upgrade;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header Sec-WebSocket-Version \$http_sec_websocket_version;
+        proxy_set_header Sec-WebSocket-Key \$http_sec_websocket_key;
+        proxy_connect_timeout 86400s;
+        proxy_send_timeout 86400s;
+        proxy_read_timeout 86400s;
+        proxy_buffering off;
+        proxy_request_buffering off;
+    }
+    
+    location /vless { proxy_pass http://127.0.0.1:10001; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
+    location /vmess { proxy_pass http://127.0.0.1:10000; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
+    location /trojan { proxy_pass http://127.0.0.1:10002; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
 }
-EOF
+
+server {
+    listen 443 ssl http2;
+    server_name ${DOMAIN} _;
+    
+    ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    
+    location / {
+        proxy_pass http://127.0.0.1:${WS_BACKEND_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$connection_upgrade;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header Sec-WebSocket-Version \$http_sec_websocket_version;
+        proxy_set_header Sec-WebSocket-Key \$http_sec_websocket_key;
+        proxy_buffering off;
+        proxy_request_buffering off;
+    }
+    
+    location /vless { proxy_pass http://127.0.0.1:10001; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
+    location /vmess { proxy_pass http://127.0.0.1:10000; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
+    location /trojan { proxy_pass http://127.0.0.1:10002; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$connection_upgrade; proxy_buffering off; }
+}
+EOFWS
+
+    cat > /etc/nginx/conf.d/vps.conf << 'EOFVPS'
+server {
+    listen 81;
+    server_name 127.0.0.1 localhost;
+    root /home/vps/public_html;
+    location / {
+        index index.html index.htm index.php;
+        try_files $uri $uri/ /index.php?$args;
+    }
+    location ~ \.php$ {
+        include /etc/nginx/fastcgi_params;
+        fastcgi_pass 127.0.0.1:9000;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+}
+EOFVPS
 
     rm -f /etc/nginx/sites-enabled/default
-    rm -f /etc/nginx/sites-enabled/websocket
-    ln -sf /etc/nginx/sites-available/websocket-ssl /etc/nginx/sites-enabled/websocket-ssl
-    
-    nginx -t
-    if [[ $? -eq 0 ]]; then
+    nginx -t > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
         systemctl restart nginx
-        echo -e "${GREEN}[OK] SSL + WebSocket configurado exitosamente.${NC}"
-        echo ""
-        echo -e "${YELLOW}📡 Datos de conexión segura:${NC}"
-        echo -e "  • Dominio: ${DOMAIN}"
-        echo -e "  • Puerto: ${GREEN}443${NC}"
-        echo -e "  • SSL/TLS: ${GREEN}Activado${NC}"
+        echo -e "${OKEY} Nginx configurado y reiniciado."
     else
-        echo -e "${RED}[!] Error en configuración de Nginx.${NC}"
+        echo -e "${EROR} Error en la configuración de Nginx."
     fi
-    
-    read -p "Presiona ENTER..."
 }
 
 while true; do
     clear
-    echo "══════════════════════════════════════"
-    echo -e "        ${GREEN}NGINX MANAGER${NC}"
-    echo "══════════════════════════════════════"
-    echo ""
-    echo -e "  [1] ${GREEN}Instalar Nginx${NC}"
-    echo -e "  [2] ${YELLOW}Reiniciar${NC}"
-    echo -e "  [3] ${YELLOW}Ver Estado${NC}"
-    echo -e "  [4] ${YELLOW}Probar Config${NC}"
-    echo -e "  [5] ${GREEN}Configurar SSL + WebSocket${NC}"
-    echo ""
-    echo -e "  [0] ${NC}Regresar"
-    echo "══════════════════════════════════════"
-    read -p "Opción [0-5]: " opt
-
+    show_header
+    echo -e "${CYAN}┌────────────────────────────────────────────────────────────┐${NC}"
+    echo -e "${CYAN}│          ${BOLD}NGINX MANAGER${NC}"
+    echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
+    echo
+    echo -e "${CYAN}[01]${NC} Instalar y Configurar Nginx"
+    echo -e "${CYAN}[02]${NC} Reiniciar Nginx"
+    echo -e "${CYAN}[03]${NC} Estado de Nginx"
+    echo
+    echo -e "${RED}[00]${NC} Regresar"
+    echo
+    read -p "Seleccione una opción: " opt
     case $opt in
-        1) install_nginx ;;
-        2) restart_nginx ;;
-        3) status_nginx ;;
-        4) test_config ;;
-        5) setup_ssl_websocket ;;
+        1) install_nginx; configure_nginx; read -p "ENTER..." ;;
+        2) systemctl restart nginx; echo -e "${OKEY} Reiniciado"; read -p "ENTER..." ;;
+        3) systemctl status nginx --no-pager -l; read -p "ENTER..." ;;
         0) break ;;
-        *) echo -e "${RED}Inválida${NC}"; sleep 1 ;;
+        *) echo -e "${RED}Opción inválida${NC}"; sleep 1 ;;
     esac
 done
