@@ -48,8 +48,6 @@ while true; do
                 continue
             fi
 
-            systemctl is-active ssh >/dev/null 2>&1 || systemctl restart ssh
-
             rm -f /etc/nginx/sites-enabled/default
 
             cat > /etc/nginx/sites-available/websocket << 'EOF'
@@ -57,35 +55,20 @@ server {
     listen 80;
     server_name _;
 
-    location /ws {
+    location / {
         proxy_pass http://127.0.0.1:8080;
-
         proxy_http_version 1.1;
-
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-
+        proxy_set_header Connection "Upgrade";
         proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
         proxy_cache_bypass $http_upgrade;
-
-        proxy_read_timeout 86400;
-        proxy_send_timeout 86400;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
     }
 }
 EOF
 
-            ln -sf /etc/nginx/sites-available/websocket /etc/nginx/sites-enabled/websocket
-
-            nginx -t > /dev/null 2>&1
-
-            if [[ $? -ne 0 ]]; then
-                echo -e "${RED}[ERROR] Configuración Nginx inválida.${NC}"
-                read -p "Presiona ENTER para continuar..."
-                continue
-            fi
+            ln -sf /etc/nginx/sites-available/websocket /etc/nginx/sites-enabled/
 
             cat > /etc/systemd/system/websockify.service << 'EOF'
 [Unit]
@@ -95,8 +78,7 @@ After=network.target
 [Service]
 Type=simple
 ExecStart=/usr/bin/websockify 8080 127.0.0.1:22
-Restart=always
-RestartSec=3
+Restart=on-failure
 User=root
 Group=root
 
@@ -105,14 +87,14 @@ WantedBy=multi-user.target
 EOF
 
             systemctl daemon-reload
-            systemctl enable websockify >/dev/null 2>&1
-            systemctl enable nginx >/dev/null 2>&1
-
+            systemctl enable websockify > /dev/null 2>&1
+            systemctl enable nginx > /dev/null 2>&1
             systemctl restart websockify
             systemctl restart nginx
 
-            if command -v ufw >/dev/null && ufw status | grep -q "active"; then
-                ufw allow 80/tcp >/dev/null 2>&1
+            if command -v ufw > /dev/null && ufw status | grep -q "active"; then
+                ufw allow 80/tcp > /dev/null 2>&1
+                ufw allow 443/tcp > /dev/null 2>&1
             fi
 
             SERVER_IP=$(get_ip)
@@ -122,10 +104,10 @@ EOF
             echo -e "        ${GREEN}¡INSTALACIÓN EXITOSA!${NC}"
             echo -e "${GREEN}══════════════════════════════════════${NC}"
             echo ""
-            echo -e "${YELLOW}DATOS DE CONEXIÓN:${NC}"
+            echo -e "${YELLOW} DATOS DE CONEXIÓN:${NC}"
             echo -e "  • IP / Dominio : ${SERVER_IP}"
             echo -e "  • Puerto       : ${GREEN}80${NC}"
-            echo -e "  • Path         : ${GREEN}/ws${NC}"
+            echo -e "  • Path         : ${GREEN}/${NC}"
             echo ""
             read -p "Presiona ENTER para regresar..."
             ;;
@@ -143,40 +125,30 @@ EOF
             echo -e "        ESTADO DE LOS SERVICIOS"
             echo -e "${GREEN}══════════════════════════════════════${NC}"
             echo ""
-
             echo -e "${YELLOW}► Nginx:${NC}"
-            systemctl is-active nginx >/dev/null && echo -e "${GREEN}  [ACTIVO]${NC}" || echo -e "${RED}  [INACTIVO]${NC}"
-
+            systemctl is-active nginx > /dev/null && echo -e "${GREEN}  [ACTIVO]${NC}" || echo -e "${RED}  [INACTIVO]${NC}"
             echo -e "${YELLOW}► Websockify:${NC}"
-            systemctl is-active websockify >/dev/null && echo -e "${GREEN}  [ACTIVO]${NC}" || echo -e "${RED}  [INACTIVO]${NC}"
-
+            systemctl is-active websockify > /dev/null && echo -e "${GREEN}  [ACTIVO]${NC}" || echo -e "${RED}  [INACTIVO]${NC}"
             echo ""
             echo -e "${YELLOW}► Puertos:${NC}"
             ss -tulpn | grep -E ':80|:443|:8080'
             echo ""
-
             read -p "Presiona ENTER para continuar..."
             ;;
 
         4)
             read -p "¿Desinstalar WebSocket? (s/n): " confirm
-
             if [[ "$confirm" == "s" || "$confirm" == "S" ]]; then
-                systemctl stop websockify >/dev/null 2>&1
-                systemctl disable websockify >/dev/null 2>&1
-
+                systemctl stop websockify > /dev/null 2>&1
+                systemctl disable websockify > /dev/null 2>&1
                 rm -f /etc/systemd/system/websockify.service
                 rm -f /etc/nginx/sites-available/websocket
                 rm -f /etc/nginx/sites-enabled/websocket
-
-                apt remove --purge -y websockify >/dev/null 2>&1
-
+                apt remove --purge -y websockify > /dev/null 2>&1
                 systemctl daemon-reload
-                systemctl restart nginx >/dev/null 2>&1
-
+                systemctl restart nginx > /dev/null 2>&1
                 echo -e "${GREEN}[OK] Desinstalado.${NC}"
             fi
-
             read -p "Presiona ENTER para continuar..."
             ;;
 
