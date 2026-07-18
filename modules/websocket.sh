@@ -8,31 +8,28 @@ source /usr/local/oxgi/modules/color.sh
 source /usr/local/oxgi/modules/header.sh
 
 install_websockify() {
-    echo -e "${BLUE}Instalando WebSocket dependencies...${NC}"
+    echo -e "${BLUE}Instalando dependencias...${NC}"
     apt-get update
-    apt-get install -y websockify python3 python3-pip
-    echo -e "${GREEN}Dependencias instaladas${NC}"
+    apt-get install -y websockify python3 python3-pip nginx
+    echo -e "${GREEN}Instalado${NC}"
 }
 
-create_websockify_service() {
-    echo -e "${BLUE}Creando servicio WebSocket...${NC}"
+create_service() {
+    echo -e "${BLUE}Creando servicio...${NC}"
     
     cat > /etc/systemd/system/oxgi-ws.service << EOF
 [Unit]
-Description=OXGI WebSocket Proxy Service
+Description=OXGI WebSocket Proxy
 After=network.target ssh.service
 Wants=ssh.service
 
 [Service]
 Type=simple
 User=root
-ExecStart=/usr/bin/websockify 8080 127.0.0.1:${SSH_PORT:-22}
+ExecStart=/usr/bin/websockify 8080 127.0.0.1:22
 ExecReload=/bin/kill -HUP \$MAINPID
 Restart=on-failure
 RestartSec=5
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=oxgi-ws
 
 [Install]
 WantedBy=multi-user.target
@@ -40,44 +37,22 @@ EOF
 
     systemctl daemon-reload
     systemctl enable oxgi-ws
-    echo -e "${GREEN}Servicio WebSocket creado${NC}"
+    echo -e "${GREEN}Servicio creado${NC}"
 }
 
-start_websocket() {
-    echo -e "${BLUE}Iniciando WebSocket...${NC}"
+start_service() {
+    echo -e "${BLUE}Iniciando...${NC}"
     systemctl start oxgi-ws
     sleep 2
     
     if systemctl is-active --quiet oxgi-ws; then
-        echo -e "${GREEN}✓ WebSocket iniciado${NC}"
-        echo -e "${GREEN}✓ Proxy: 127.0.0.1:8080 -> SSH:${SSH_PORT:-22}${NC}"
+        echo -e "${GREEN}✓ WebSocket activo en puerto 8080${NC}"
     else
-        echo -e "${RED}✗ Error al iniciar WebSocket${NC}"
-        journalctl -u oxgi-ws -n 10
+        echo -e "${RED}✗ Error${NC}"
     fi
 }
 
-restart_websocket() {
-    echo -e "${BLUE}Reiniciando WebSocket...${NC}"
-    systemctl restart oxgi-ws
-    sleep 2
-    
-    if systemctl is-active --quiet oxgi-ws; then
-        echo -e "${GREEN}✓ WebSocket reiniciado${NC}"
-    else
-        echo -e "${RED} Error${NC}"
-    fi
-}
-
-websocket_status() {
-    echo -e "${BLUE}Estado de WebSocket:${NC}"
-    systemctl status oxgi-ws --no-pager -l
-    echo ""
-    echo -e "${BLUE}Puertos escuchando:${NC}"
-    netstat -tlnp | grep -E ":(8080|${WS_PORT:-700})" || echo "No hay puertos"
-}
-
-# Menú principal
+# Menú
 while true; do
     clear
     show_header
@@ -85,34 +60,36 @@ while true; do
     echo " WEBSOCKET MANAGER"
     echo "══════════════════════════════"
     echo
-    echo "[1] Instalar WebSocket"
-    echo "[2] Reiniciar WebSocket"
-    echo "[3] Estado WebSocket"
+    echo "[1] Instalar"
+    echo "[2] Reiniciar"
+    echo "[3] Estado"
     echo
     echo "[0] Regresar"
     echo
-    read -p "Seleccione una opción: " opt
+    read -p "Opción: " opt
 
     case $opt in
         1)
             install_websockify
-            create_websockify_service
-            start_websocket
+            create_service
+            start_service
             read -p "ENTER..."
             ;;
         2)
-            restart_websocket
+            systemctl restart oxgi-ws
+            sleep 2
+            echo -e "${GREEN}Reiniciado${NC}"
             read -p "ENTER..."
             ;;
         3)
-            websocket_status
+            systemctl status oxgi-ws --no-pager -l
             read -p "ENTER..."
             ;;
         0)
             break
             ;;
         *)
-            echo "Opción inválida"
+            echo "Inválida"
             sleep 1
             ;;
     esac
