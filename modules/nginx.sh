@@ -1,155 +1,138 @@
 #!/bin/bash
 # ==========================================
-# Nginx Configuration Module with WebSocket
+# Nginx Configuration Module (OXGI)
 # ==========================================
 
-source /etc/oxgi/config.conf
-source /usr/local/oxgi/modules/color.sh
-source /usr/local/oxgi/modules/header.sh
+if [[ -f /etc/oxgi/domain.conf ]]; then
+    DOMAIN=$(cat /etc/oxgi/domain.conf)
+else
+    echo -e "\e[1;31mError: No se encontró /etc/oxgi/domain.conf\e[0m"
+    echo "Ejecuta el script de instalación principal primero."
+    exit 1
+fi
 
-install_nginx() {
-    echo -e "${BLUE}Instalando Nginx...${NC}"
-    apt-get update
-    apt-get install -y nginx
-    systemctl enable nginx
-    echo -e "${GREEN}Nginx instalado${NC}"
-}
+echo -e "\e[1;36m[*] Configurando Nginx para WebSocket...\e[0m"
 
-configure_nginx_websocket() {
-    echo -e "${BLUE}Configurando Nginx para WebSocket...${NC}"
-    
-    cat > /etc/nginx/sites-available/websocket << 'EOFNGINX'
-map $http_upgrade $connection_upgrade {
+cat > /etc/nginx/sites-available/oxgi << EOF
+map \$http_upgrade \$connection_upgrade {
     default upgrade;
     '' close;
 }
 
+# HTTP - Puerto 80
 server {
     listen 80;
-    listen [::]:80;
-    server_name DOMAIN_PLACEHOLDER;
-
-    return 301 https://$server_name:443$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name DOMAIN_PLACEHOLDER;
-
-    ssl_certificate /etc/letsencrypt/live/DOMAIN_PLACEHOLDER/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/DOMAIN_PLACEHOLDER/privkey.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-    ssl_prefer_server_ciphers on;
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 10m;
-
-    # WebSocket Configuration
+    server_name ${DOMAIN} _;
+    
     location / {
-        proxy_pass http://127.0.0.1:8080;
+        proxy_pass http://127.0.0.1:2090;
         proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$connection_upgrade;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         
-        # CRITICAL: Pass ALL WebSocket headers
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection $connection_upgrade;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        # CRÍTICO: Forzar paso de headers de WebSocket (Soluciona error 400)
+        proxy_set_header Sec-WebSocket-Version \$http_sec_websocket_version;
+        proxy_set_header Sec-WebSocket-Key \$http_sec_websocket_key;
         
-        # CRITICAL: Pass Sec-WebSocket-* headers explicitly
-        proxy_set_header Sec-WebSocket-Version $http_sec_websocket_version;
-        proxy_set_header Sec-WebSocket-Key $http_sec_websocket_key;
-        proxy_set_header Sec-WebSocket-Protocol $http_sec_websocket_protocol;
-        proxy_set_header Sec-WebSocket-Extensions $http_sec_websocket_extensions;
-        
-        # Timeouts
         proxy_connect_timeout 86400s;
         proxy_send_timeout 86400s;
         proxy_read_timeout 86400s;
-        
-        # Disable buffering for WebSocket
         proxy_buffering off;
-        proxy_cache_bypass $http_upgrade;
         proxy_request_buffering off;
-        proxy_socket_keepalive on;
     }
-
-    location /health {
-        access_log off;
-        return 200 "OK";
-        add_header Content-Type text/plain;
+    
+    location /vless {
+        proxy_pass http://127.0.0.1:10000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$connection_upgrade;
+        proxy_buffering off;
+    }
+    
+    location /vmess {
+        proxy_pass http://127.0.0.1:10001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$connection_upgrade;
+        proxy_buffering off;
+    }
+    
+    location /trojan {
+        proxy_pass http://127.0.0.1:10002;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$connection_upgrade;
+        proxy_buffering off;
     }
 }
-EOFNGINX
 
-    # Reemplazar DOMAIN_PLACEHOLDER con el dominio real
-    sed -i "s/DOMAIN_PLACEHOLDER/${DOMAIN//\//\\/}/g" /etc/nginx/sites-available/websocket
-
-    # Habilitar sitio
-    ln -sf /etc/nginx/sites-available/websocket /etc/nginx/sites-enabled/
-    rm -f /etc/nginx/sites-enabled/default
+# HTTPS - Puerto 443
+server {
+    listen 443 ssl http2;
+    server_name ${DOMAIN} _;
     
-    nginx -t
+    ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
     
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}Configuración completada${NC}"
-    else
-        echo -e "${RED}Error en configuración${NC}"
-        exit 1
-    fi
+    location / {
+        proxy_pass http://127.0.0.1:2090;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$connection_upgrade;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        
+        # CRÍTICO: Forzar paso de headers de WebSocket (Soluciona error 400)
+        proxy_set_header Sec-WebSocket-Version \$http_sec_websocket_version;
+        proxy_set_header Sec-WebSocket-Key \$http_sec_websocket_key;
+        
+        proxy_connect_timeout 86400s;
+        proxy_send_timeout 86400s;
+        proxy_read_timeout 86400s;
+        proxy_buffering off;
+        proxy_request_buffering off;
+    }
+    
+    location /vless {
+        proxy_pass http://127.0.0.1:10000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$connection_upgrade;
+        proxy_buffering off;
+    }
+    
+    location /vmess {
+        proxy_pass http://127.0.0.1:10001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$connection_upgrade;
+        proxy_buffering off;
+    }
+    
+    location /trojan {
+        proxy_pass http://127.0.0.1:10002;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$connection_upgrade;
+        proxy_buffering off;
+    }
 }
+EOF
 
-restart_nginx() {
-    echo -e "${BLUE}Reiniciando Nginx...${NC}"
+ln -sf /etc/nginx/sites-available/oxgi /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default
+
+nginx -t
+if [ $? -eq 0 ]; then
     systemctl restart nginx
-    sleep 2
-    
-    if systemctl is-active --quiet nginx; then
-        echo -e "${GREEN}✓ Nginx funcionando${NC}"
-    else
-        echo -e "${RED}✗ Error${NC}"
-    fi
-}
-
-# Menú
-while true; do
-    clear
-    show_header
-    echo "══════════════════════════════"
-    echo " NGINX MANAGER"
-    echo "══════════════════════════════"
-    echo
-    echo "[1] Instalar y Configurar"
-    echo "[2] Reiniciar"
-    echo "[3] Estado"
-    echo
-    echo "[0] Regresar"
-    echo
-    read -p "Opción: " opt
-
-    case $opt in
-        1)
-            install_nginx
-            configure_nginx_websocket
-            restart_nginx
-            read -p "ENTER..."
-            ;;
-        2)
-            restart_nginx
-            read -p "ENTER..."
-            ;;
-        3)
-            systemctl status nginx --no-pager -l
-            read -p "ENTER..."
-            ;;
-        0)
-            break
-            ;;
-        *)
-            echo "Inválida"
-            sleep 1
-            ;;
-    esac
-done
+    echo -e "\e[1;32m[OK] Nginx configurado y reiniciado correctamente.\e[0m"
+else
+    echo -e "\e[1;31m[ERROR] Fallo en la configuración de Nginx.\e[0m"
+fi
