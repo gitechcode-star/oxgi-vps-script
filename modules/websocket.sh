@@ -1,100 +1,38 @@
 #!/bin/bash
 # ==========================================
-# WebSocket Configuration Module (OXGI)
+# WebSocket Service Module
 # ==========================================
 
 source /etc/oxgi/config.conf
+source /usr/local/oxgi/modules/color.sh
+source /usr/local/oxgi/modules/header.sh
 
-install_websocket() {
-    echo -e "${BLUE}Instalando dependencias de WebSocket...${NC}"
+install_websockify() {
+    echo -e "${BLUE}Instalando WebSocket dependencies...${NC}"
     apt-get update
-    apt-get install -y nginx websockify python3 python3-pip
-    echo -e "${GREEN}Dependencias instaladas correctamente${NC}"
+    apt-get install -y websockify python3 python3-pip
+    echo -e "${GREEN}Dependencias instaladas${NC}"
 }
 
-configure_nginx_websocket() {
-    echo -e "${BLUE}Configurando Nginx para WebSocket...${NC}"
-    
-    # Crear configuración de Nginx usando las variables de config.conf
-    cat > /etc/nginx/sites-available/websocket << EOF
-server {
-    listen ${HTTP_PORT};
-    listen [::]:${HTTP_PORT};
-    server_name ${DOMAIN};
-
-    # Redirigir HTTP a HTTPS
-    return 301 https://\$server_name:${HTTPS_PORT}\$request_uri;
-}
-
-server {
-    listen ${HTTPS_PORT} ssl http2;
-    listen [::]:${HTTPS_PORT} ssl http2;
-    server_name ${DOMAIN};
-
-    # Configuración SSL
-    ssl_certificate ${SSL_CERT};
-    ssl_certificate_key ${SSL_KEY};
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-    ssl_prefer_server_ciphers on;
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 10m;
-
-    # Configuración WebSocket
-    location / {
-        proxy_pass http://127.0.0.1:${PROXY_PORT};
-        proxy_http_version 1.1;
-        
-        # Headers CRÍTICOS para WebSocket (soluciona el error 400)
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "Upgrade";
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        
-        # Tiempos de espera para WebSocket
-        proxy_connect_timeout 86400s;
-        proxy_send_timeout 86400s;
-        proxy_read_timeout 86400s;
-        
-        # Desactivar buffering para WebSocket
-        proxy_buffering off;
-        proxy_cache_bypass \$http_upgrade;
-        proxy_request_buffering off;
-    }
-}
-EOF
-
-    # Habilitar el sitio
-    ln -sf /etc/nginx/sites-available/websocket /etc/nginx/sites-enabled/
-    rm -f /etc/nginx/sites-enabled/default
-    
-    # Probar configuración de Nginx
-    nginx -t
-    
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}Configuración de Nginx completada${NC}"
-    else
-        echo -e "${RED}Error en la configuración de Nginx${NC}"
-        exit 1
-    fi
-}
-
-configure_websockify_service() {
-    echo -e "${BLUE}Configurando servicio de Websockify...${NC}"
+create_websockify_service() {
+    echo -e "${BLUE}Creando servicio WebSocket...${NC}"
     
     cat > /etc/systemd/system/oxgi-ws.service << EOF
 [Unit]
 Description=OXGI WebSocket Proxy Service
 After=network.target ssh.service
+Wants=ssh.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/websockify ${PROXY_PORT} 127.0.0.1:${SSH_PORT}
-Restart=on-failure
 User=root
-Group=root
+ExecStart=/usr/bin/websockify 8080 127.0.0.1:${SSH_PORT:-22}
+ExecReload=/bin/kill -HUP \$MAINPID
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=oxgi-ws
 
 [Install]
 WantedBy=multi-user.target
@@ -102,34 +40,54 @@ EOF
 
     systemctl daemon-reload
     systemctl enable oxgi-ws
-    echo -e "${GREEN}Servicio de Websockify configurado${NC}"
+    echo -e "${GREEN}Servicio WebSocket creado${NC}"
 }
 
-restart_services() {
-    echo -e "${BLUE}Reiniciando servicios...${NC}"
-    systemctl restart nginx
+start_websocket() {
+    echo -e "${BLUE}Iniciando WebSocket...${NC}"
+    systemctl start oxgi-ws
+    sleep 2
+    
+    if systemctl is-active --quiet oxgi-ws; then
+        echo -e "${GREEN}✓ WebSocket iniciado${NC}"
+        echo -e "${GREEN}✓ Proxy: 127.0.0.1:8080 -> SSH:${SSH_PORT:-22}${NC}"
+    else
+        echo -e "${RED}✗ Error al iniciar WebSocket${NC}"
+        journalctl -u oxgi-ws -n 10
+    fi
+}
+
+restart_websocket() {
+    echo -e "${BLUE}Reiniciando WebSocket...${NC}"
     systemctl restart oxgi-ws
     sleep 2
     
-    if systemctl is-active --quiet nginx && systemctl is-active --quiet oxgi-ws; then
-        echo -e "${GREEN}✓ Todos los servicios están funcionando correctamente${NC}"
-        echo -e "${GREEN}✓ WebSocket disponible en: wss://${DOMAIN}:${HTTPS_PORT}${NC}"
+    if systemctl is-active --quiet oxgi-ws; then
+        echo -e "${GREEN}✓ WebSocket reiniciado${NC}"
     else
-        echo -e "${RED}✗ Algunos servicios fallaron al iniciar${NC}"
-        echo -e "${YELLOW}Revisa los logs: journalctl -u nginx -u oxgi-ws${NC}"
+        echo -e "${RED} Error${NC}"
     fi
+}
+
+websocket_status() {
+    echo -e "${BLUE}Estado de WebSocket:${NC}"
+    systemctl status oxgi-ws --no-pager -l
+    echo ""
+    echo -e "${BLUE}Puertos escuchando:${NC}"
+    netstat -tlnp | grep -E ":(8080|${WS_PORT:-700})" || echo "No hay puertos"
 }
 
 # Menú principal
 while true; do
     clear
+    show_header
     echo "══════════════════════════════"
-    echo " GESTOR DE WEBSOCKET (OXGI)"
+    echo " WEBSOCKET MANAGER"
     echo "══════════════════════════════"
     echo
-    echo "[1] Instalar y Configurar WebSocket"
-    echo "[2] Reiniciar Servicios"
-    echo "[3] Ver Estado"
+    echo "[1] Instalar WebSocket"
+    echo "[2] Reiniciar WebSocket"
+    echo "[3] Estado WebSocket"
     echo
     echo "[0] Regresar"
     echo
@@ -137,22 +95,18 @@ while true; do
 
     case $opt in
         1)
-            install_websocket
-            configure_nginx_websocket
-            configure_websockify_service
-            restart_services
-            read -p "Presione ENTER para continuar..."
+            install_websockify
+            create_websockify_service
+            start_websocket
+            read -p "ENTER..."
             ;;
         2)
-            restart_services
-            read -p "Presione ENTER para continuar..."
+            restart_websocket
+            read -p "ENTER..."
             ;;
         3)
-            echo -e "${BLUE}Estado de Nginx:${NC}"
-            systemctl status nginx --no-pager -l
-            echo -e "${BLUE}Estado de Websockify:${NC}"
-            systemctl status oxgi-ws --no-pager -l
-            read -p "Presione ENTER para continuar..."
+            websocket_status
+            read -p "ENTER..."
             ;;
         0)
             break
