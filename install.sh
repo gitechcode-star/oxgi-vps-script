@@ -5,12 +5,14 @@ export DEBIAN_FRONTEND=noninteractive
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 
 clear
-echo -e "${CYAN}╔════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}════════════════════════════════════════════╗${NC}"
 echo -e "${CYAN}║      ${GREEN}OXGI VPS INSTALLER${NC}${CYAN}                 ║${NC}"
 echo -e "${CYAN}╚════════════════════════════════════════════╝${NC}"
 
 read -p "Dominio: " DOMAIN
 [[ -z "$DOMAIN" ]] && echo "Dominio requerido" && exit 1
+mkdir -p /etc/oxgi
+echo "$DOMAIN" > /etc/oxgi/domain.conf
 
 echo -e "${YELLOW}[1/10] Actualizando sistema...${NC}"
 apt update -y && apt upgrade -y
@@ -27,8 +29,12 @@ sed -i 's/DROPBEAR_PORT=22/DROPBEAR_PORT=109/' /etc/default/dropbear
 systemctl enable dropbear
 systemctl restart dropbear
 
+# Segundo Dropbear en puerto 143
+/usr/sbin/dropbear -p 143 -W 65536
+echo "/usr/sbin/dropbear -p 143 -W 65536" >> /etc/rc.local 2>/dev/null || true
+
 echo -e "${YELLOW}[4/10] Instalando Stunnel5...${NC}"
-apt install -y stunnel5
+apt install -y stunnel4
 mkdir -p /etc/stunnel
 openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
     -subj "/C=ID/ST=Jakarta/O=OXGI/CN=localhost" \
@@ -49,16 +55,23 @@ connect = 127.0.0.1:109
 accept = 777
 connect = 127.0.0.1:22
 EOF
-sed -i 's/ENABLED=0/ENABLED=1/g' /etc/default/stunnel5
-systemctl enable stunnel5
-systemctl restart stunnel5
+
+cat > /etc/default/stunnel4 << 'EOF'
+ENABLED=1
+FILES="/etc/stunnel/*.conf"
+OPTIONS=""
+PPP_RESTART=0
+EOF
+
+systemctl enable stunnel4
+systemctl restart stunnel4
 
 echo -e "${YELLOW}[5/10] Instalando BadVPN...${NC}"
 apt install -y screen cmake g++ make
 mkdir -p /root/badvpn && cd /root/badvpn
-if [[ ! -d "build" ]]; then
+if [[ ! -f "/usr/bin/badvpn-udpgw" ]]; then
     git clone https://github.com/ambrop72/badvpn.git . 2>/dev/null
-    mkdir build && cd build
+    mkdir -p build && cd build
     cmake .. -DBUILD_NOTHING_BY_DEFAULT=ON -DBUILD_UDPGW=ON 2>/dev/null
     make 2>/dev/null
     cp udpgw/badvpn-udpgw /usr/bin/
@@ -78,36 +91,61 @@ EOF
     systemctl restart badvpn-${PORT}
 done
 
-echo -e "${YELLOW}[6/10] Instalando WebSocket Python...${NC}"
+echo -e "${YELLOW}[6/10] Instalando WebSocket...${NC}"
 apt install -y python3 python3-pip
 pip3 install websockets
 
 cat > /usr/local/bin/oxgi-ws << 'EOFWS'
 #!/usr/bin/env python3
-import asyncio, websockets, socket
-async def handle_client(websocket, path):
+import asyncio
+import websockets
+import socket
+import sys
+
+async def handle_client(websocket):
     try:
         ssh = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         ssh.connect(('127.0.0.1', 22))
         ssh.setblocking(0)
+        
         async def ws2ssh():
-            async for msg in websocket: ssh.sendall(msg)
+            async for msg in websocket:
+                ssh.sendall(msg)
+        
         async def ssh2ws():
             while True:
                 await asyncio.sleep(0.01)
                 try:
                     data = ssh.recv(4096)
-                    if data: await websocket.send(data)
-                    else: break
-                except: break
+                    if data:
+                        await websocket.send(data)
+                    else:
+                        break
+                except BlockingIOError:
+                    await asyncio.sleep(0.01)
+                    continue
+                except:
+                    break
+        
         await asyncio.gather(ws2ssh(), ssh2ws())
-    except: pass
+    except Exception as e:
+        pass
     finally:
-        try: websocket.close(); ssh.close()
-        except: pass
+        try:
+            websocket.close()
+        except:
+            pass
+        try:
+            ssh.close()
+        except:
+            pass
+
 async def main():
-    async with websockets.serve(handle_client, '0.0.0.0', 2090): await asyncio.Future()
-if __name__ == '__main__': asyncio.run(main())
+    async with websockets.serve(handle_client, '0.0.0.0', 2090):
+        await asyncio.Future()
+
+if __name__ == '__main__':
+    asyncio.run(main())
 EOFWS
 chmod +x /usr/local/bin/oxgi-ws
 
@@ -119,6 +157,7 @@ After=network.target
 Type=simple
 ExecStart=/usr/bin/python3 /usr/local/bin/oxgi-ws
 Restart=on-failure
+RestartSec=5
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -371,8 +410,8 @@ while true; do
         2) bash /usr/local/oxgi/modules/v2ray.sh ;;
         3) bash /usr/local/oxgi/modules/nginx.sh ;;
         4) bash /usr/local/oxgi/modules/websocket.sh ;;
-        5) systemctl restart nginx oxgi-ws dropbear stunnel5; echo -e "${GREEN}Done${NC}"; read -p "ENTER" ;;
-        6) systemctl status nginx oxgi-ws dropbear stunnel5 --no-pager -l; read -p "ENTER" ;;
+        5) systemctl restart nginx oxgi-ws dropbear stunnel4; echo -e "${GREEN}Done${NC}"; read -p "ENTER" ;;
+        6) systemctl status nginx oxgi-ws dropbear stunnel4 --no-pager -l; read -p "ENTER" ;;
         7) netstat -tlnp | grep -E ':(22|80|109|143|443|447|777|7100|7200|7300|2090)'; read -p "ENTER" ;;
         8) echo "Uptime:"; uptime; echo; free -h; echo; df -h; read -p "ENTER" ;;
         0) clear; exit 0 ;;
@@ -381,7 +420,7 @@ done
 EOFMENU
 chmod +x /usr/local/bin/oxgi
 
-echo -e "${YELLOW}[10/10] Verificando servicios...${NC}"
+echo -e "${YELLOW}[10/10] Verificando...${NC}"
 sleep 3
 echo ""
 echo -e "${GREEN}════════════════════════════════════════════╗${NC}"
