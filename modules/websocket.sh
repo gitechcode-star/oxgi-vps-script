@@ -1,163 +1,115 @@
 #!/bin/bash
+# ==========================================
+# WebSocket Service Module
+# ==========================================
 
-if [[ $EUID -ne 0 ]]; then
-   echo -e "\e[31m[ERROR] Este script debe ejecutarse como root.\e[0m"
-   exit 1
-fi
+source /etc/oxgi/config.conf
 
-GREEN='\033[1;32m'
-RED='\033[1;31m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-get_ip() {
-    curl -s https://api.ipify.org || curl -s https://ifconfig.me
+install_websockify() {
+    echo -e "${BLUE}Installing WebSocket dependencies...${NC}"
+    apt-get update
+    apt-get install -y websockify python3 python3-pip nginx
+    pip3 install wsproxy || true
+    echo -e "${GREEN}Dependencies installed${NC}"
 }
 
-while true; do
-    clear
-    echo "══════════════════════════════════════"
-    echo -e "        ${GREEN}WEBSOCKET MANAGER (SSH)${NC}"
-    echo "══════════════════════════════════════"
-    echo ""
-    echo -e "  [1] ${GREEN}Instalar / Configurar WebSocket${NC}"
-    echo -e "  [2] ${YELLOW}Reiniciar Servicios WebSocket${NC}"
-    echo -e "  [3] ${YELLOW}Ver Estado y Puertos${NC}"
-    echo -e "  [4] ${RED}Desinstalar WebSocket${NC}"
-    echo ""
-    echo -e "  [0] ${NC}Regresar al menú principal"
-    echo "══════════════════════════════════════"
-    echo ""
-    read -p "Seleccione una opción [0-4]: " opt
-
-    case $opt in
-        1)
-            clear
-            echo -e "${GREEN}══════════════════════════════════════${NC}"
-            echo -e "  Instalando WebSocket (Nginx + Websockify)"
-            echo -e "${GREEN}══════════════════════════════════════${NC}"
-            sleep 1
-
-            echo -e "${YELLOW}[*] Actualizando repositorios...${NC}"
-            apt update -y > /dev/null 2>&1
-            apt install -y nginx websockify > /dev/null 2>&1
-
-            if [[ $? -ne 0 ]]; then
-                echo -e "${RED}[!] Error al instalar los paquetes.${NC}"
-                read -p "Presiona ENTER para continuar..."
-                continue
-            fi
-
-            rm -f /etc/nginx/sites-enabled/default
-
-            cat > /etc/nginx/sites-available/websocket << 'EOF'
-server {
-    listen 80;
-    server_name _;
-
-    location / {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "Upgrade";
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-        proxy_read_timeout 86400s;
-        proxy_send_timeout 86400s;
-    }
-}
-EOF
-
-            ln -sf /etc/nginx/sites-available/websocket /etc/nginx/sites-enabled/
-
-            cat > /etc/systemd/system/websockify.service << 'EOF'
+create_websockify_service() {
+    echo -e "${BLUE}Creating WebSocket service...${NC}"
+    
+    cat > /etc/systemd/system/oxgi-ws.service << EOF
 [Unit]
-Description=Websockify SSH Bridge Service
-After=network.target
+Description=OXGI WebSocket Proxy
+After=network.target ssh.service
+Wants=ssh.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/websockify 8080 127.0.0.1:22
-Restart=on-failure
 User=root
-Group=root
+ExecStart=/usr/bin/websockify --web=/var/www/html ${PROXY_PORT} 127.0.0.1:${SSH_PORT}
+ExecReload=/bin/kill -HUP \$MAINPID
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=oxgi-ws
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-            systemctl daemon-reload
-            systemctl enable websockify > /dev/null 2>&1
-            systemctl enable nginx > /dev/null 2>&1
-            systemctl restart websockify
-            systemctl restart nginx
+    systemctl daemon-reload
+    systemctl enable oxgi-ws
+    echo -e "${GREEN}WebSocket service created${NC}"
+}
 
-            if command -v ufw > /dev/null && ufw status | grep -q "active"; then
-                ufw allow 80/tcp > /dev/null 2>&1
-                ufw allow 443/tcp > /dev/null 2>&1
-            fi
+start_websocket() {
+    echo -e "${BLUE}Starting WebSocket service...${NC}"
+    systemctl start oxgi-ws
+    sleep 2
+    
+    if systemctl is-active --quiet oxgi-ws; then
+        echo -e "${GREEN}✓ WebSocket service running${NC}"
+    else
+        echo -e "${RED}✗ WebSocket service failed${NC}"
+        journalctl -u oxgi-ws -n 20
+    fi
+}
 
-            SERVER_IP=$(get_ip)
+restart_websocket() {
+    echo -e "${BLUE}Restarting WebSocket service...${NC}"
+    systemctl restart oxgi-ws
+    sleep 2
+    
+    if systemctl is-active --quiet oxgi-ws; then
+        echo -e "${GREEN}✓ WebSocket restarted${NC}"
+    else
+        echo -e "${RED}✗ WebSocket failed to restart${NC}"
+    fi
+}
 
-            clear
-            echo -e "${GREEN}══════════════════════════════════════${NC}"
-            echo -e "        ${GREEN}¡INSTALACIÓN EXITOSA!${NC}"
-            echo -e "${GREEN}══════════════════════════════════════${NC}"
-            echo ""
-            echo -e "${YELLOW} DATOS DE CONEXIÓN:${NC}"
-            echo -e "  • IP / Dominio : ${SERVER_IP}"
-            echo -e "  • Puerto       : ${GREEN}80${NC}"
-            echo -e "  • Path         : ${GREEN}/${NC}"
-            echo ""
-            read -p "Presiona ENTER para regresar..."
+websocket_status() {
+    echo -e "${BLUE}WebSocket Status:${NC}"
+    systemctl status oxgi-ws --no-pager -l
+    echo ""
+    echo -e "${BLUE}Listening ports:${NC}"
+    netstat -tlnp | grep -E ":(${PROXY_PORT}|${WS_PORT})" || echo "No ports listening"
+}
+
+# Main menu
+while true; do
+    clear
+    echo "══════════════════════════════"
+    echo " WEBSOCKET MANAGER"
+    echo "══════════════════════════════"
+    echo
+    echo "[1] Instalar WebSocket"
+    echo "[2] Reiniciar WebSocket"
+    echo "[3] Estado WebSocket"
+    echo
+    echo "[0] Regresar"
+    echo
+    read -p "Seleccione una opción: " opt
+
+    case $opt in
+        1)
+            install_websockify
+            create_websockify_service
+            start_websocket
+            read -p "ENTER..."
             ;;
-
         2)
-            systemctl restart websockify
-            systemctl restart nginx
-            echo -e "${GREEN}[OK] Servicios reiniciados.${NC}"
-            read -p "Presiona ENTER para continuar..."
+            restart_websocket
+            read -p "ENTER..."
             ;;
-
         3)
-            clear
-            echo -e "${GREEN}══════════════════════════════════════${NC}"
-            echo -e "        ESTADO DE LOS SERVICIOS"
-            echo -e "${GREEN}══════════════════════════════════════${NC}"
-            echo ""
-            echo -e "${YELLOW}► Nginx:${NC}"
-            systemctl is-active nginx > /dev/null && echo -e "${GREEN}  [ACTIVO]${NC}" || echo -e "${RED}  [INACTIVO]${NC}"
-            echo -e "${YELLOW}► Websockify:${NC}"
-            systemctl is-active websockify > /dev/null && echo -e "${GREEN}  [ACTIVO]${NC}" || echo -e "${RED}  [INACTIVO]${NC}"
-            echo ""
-            echo -e "${YELLOW}► Puertos:${NC}"
-            ss -tulpn | grep -E ':80|:443|:8080'
-            echo ""
-            read -p "Presiona ENTER para continuar..."
+            websocket_status
+            read -p "ENTER..."
             ;;
-
-        4)
-            read -p "¿Desinstalar WebSocket? (s/n): " confirm
-            if [[ "$confirm" == "s" || "$confirm" == "S" ]]; then
-                systemctl stop websockify > /dev/null 2>&1
-                systemctl disable websockify > /dev/null 2>&1
-                rm -f /etc/systemd/system/websockify.service
-                rm -f /etc/nginx/sites-available/websocket
-                rm -f /etc/nginx/sites-enabled/websocket
-                apt remove --purge -y websockify > /dev/null 2>&1
-                systemctl daemon-reload
-                systemctl restart nginx > /dev/null 2>&1
-                echo -e "${GREEN}[OK] Desinstalado.${NC}"
-            fi
-            read -p "Presiona ENTER para continuar..."
-            ;;
-
         0)
             break
             ;;
-
         *)
-            echo -e "${RED}Opción inválida.${NC}"
+            echo "Opción inválida"
             sleep 1
             ;;
     esac
