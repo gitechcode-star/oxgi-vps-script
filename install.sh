@@ -54,6 +54,8 @@ systemctl enable dropbear
 systemctl restart dropbear
 
 # Segundo Dropbear en 143
+pkill -9 dropbear || true
+sleep 1
 /usr/local/sbin/dropbear -p 143 -W 65536
 
 echo -e "${YELLOW}[4/10] Instalando Stunnel...${NC}"
@@ -82,8 +84,15 @@ EOF
 cat > /etc/default/stunnel4 << 'EOF'
 ENABLED=1
 FILES="/etc/stunnel/*.conf"
+OPTIONS="-p /etc/stunnel/stunnel.pem"
 EOF
-systemctl enable stunnel4 && systemctl restart stunnel4
+
+# Limpiar puertos colgados y reiniciar stunnel
+pkill -9 stunnel4 || true
+fuser -k 447/tcp 777/tcp 2>/dev/null || true
+sleep 2
+systemctl enable stunnel4
+systemctl restart stunnel4
 
 echo -e "${YELLOW}[5/10] Instalando BadVPN...${NC}"
 mkdir -p /root/badvpn && cd /root/badvpn
@@ -109,35 +118,70 @@ EOF
     systemctl restart badvpn-${PORT}
 done
 
-echo -e "${YELLOW}[6/10] Instalando WebSocket...${NC}"
-pip3 install websockets > /dev/null 2>&1
+echo -e "${YELLOW}[6/10] Instalando WebSocket (API Corregida)...${NC}"
+pip3 install --upgrade websockets > /dev/null 2>&1
 
+# SCRIPT PYTHON CORREGIDO PARA WEBSOCKETS >= 10.0 (Sin argumento 'path')
 cat > /usr/local/bin/ws-stunnel << 'EOFWS'
 #!/usr/bin/env python3
-import asyncio, websockets, socket
-async def handle_client(websocket, path):
+import asyncio
+import websockets
+import socket
+import sys
+
+async def handle_client(websocket):
     try:
         ssh = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         ssh.connect(('127.0.0.1', 22))
         ssh.setblocking(0)
+        
         async def ws2ssh():
-            async for msg in websocket: ssh.sendall(msg)
+            try:
+                async for msg in websocket:
+                    ssh.sendall(msg)
+            except:
+                pass
+                
         async def ssh2ws():
-            while True:
-                await asyncio.sleep(0.01)
-                try:
-                    data = ssh.recv(4096)
-                    if data: await websocket.send(data)
-                    else: break
-                except: break
+            try:
+                while True:
+                    await asyncio.sleep(0.01)
+                    try:
+                        data = ssh.recv(4096)
+                        if data:
+                            await websocket.send(data)
+                        else:
+                            break
+                    except BlockingIOError:
+                        await asyncio.sleep(0.01)
+                        continue
+                    except:
+                        break
+            except:
+                pass
+                
         await asyncio.gather(ws2ssh(), ssh2ws())
-    except: pass
+    except Exception as e:
+        pass
     finally:
-        try: websocket.close(); ssh.close()
-        except: pass
+        try:
+            await websocket.close()
+        except:
+            pass
+        try:
+            ssh.close()
+        except:
+            pass
+
 async def main():
-    async with websockets.serve(handle_client, '0.0.0.0', 2090): await asyncio.Future()
-if __name__ == '__main__': asyncio.run(main())
+    async with websockets.serve(handle_client, '0.0.0.0', 2090):
+        await asyncio.Future()
+
+if __name__ == '__main__':
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        print(f"WebSocket Error: {e}", file=sys.stderr)
 EOFWS
 chmod +x /usr/local/bin/ws-stunnel
 
@@ -219,7 +263,7 @@ EOF
 systemctl enable fail2ban && systemctl restart fail2ban
 echo "0 5 * * * /sbin/reboot" | crontab -
 
-# === CREACIÓN DE LOS ARCHIVOS DE MÓDULOS (ESTO FALTABA ANTES) ===
+# === CREACIÓN DE LOS ARCHIVOS DE MÓDULOS ===
 cat > /usr/local/oxgi/modules/oxgi.sh << 'EOFOXGI'
 #!/bin/bash
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
