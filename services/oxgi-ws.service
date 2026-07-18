@@ -1,1 +1,13 @@
+[Unit]
+Description=OXGI WebSocket Proxy Service
+After=network.target ssh.service
 
+[Service]
+Type=simple
+ExecStart=/usr/bin/websockify 8080 127.0.0.1:22
+Restart=on-failure
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target
