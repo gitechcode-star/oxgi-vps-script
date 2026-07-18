@@ -1,8 +1,11 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════
-# OXGI VPS SCRIPT v1.0.0
+# OXGI VPS SCRIPT v1.1.0 - CORREGIDO
 # SSL REAL con Let's Encrypt (Certbot)
+# WebSocket SSH funcional con Nginx + Websockify
 # ══════════════════════════════════════════════════════════════
+
+set -e
 
 clear
 
@@ -10,7 +13,7 @@ export DEBIAN_FRONTEND=noninteractive
 GREEN='\033[1;32m'; RED='\033[1;31m'; YELLOW='\033[1;33m'; CYAN='\033[1;36m'; NC='\033[0m'; BOLD='\033[1m'
 
 echo -e "${CYAN}╔══════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║           ${GREEN}${BOLD}OXGI VPS SCRIPT${NC}${CYAN} v1.0.0              ║${NC}"
+echo -e "${CYAN}║           ${GREEN}${BOLD}OXGI VPS SCRIPT${NC}${CYAN} v1.1.0 (FIXED)       ║${NC}"
 echo -e "${CYAN}╚══════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -129,14 +132,14 @@ ufw allow 7300/udp
 echo "y" | ufw enable > /dev/null 2>&1
 
 echo -e "${YELLOW}[5/9] Instalando Fail2Ban...${NC}"
-cat > /etc/fail2ban/jail.local << 'EOF'
+cat > /etc/fail2ban/jail.local << 'JAILEOF'
 [DEFAULT]
 bantime = 3600
 maxretry = 5
 [sshd]
 enabled = true
 port = 22,109
-EOF
+JAILEOF
 systemctl enable --now fail2ban > /dev/null 2>&1
 
 echo -e "${YELLOW}[6/9] Configurando Dropbear (109)...${NC}"
@@ -152,7 +155,7 @@ cmake .. -DBUILD_NOTHING_BY_DEFAULT=ON -DBUILD_UDPGW=ON > /dev/null 2>&1
 make > /dev/null 2>&1
 cp udpgw/badvpn-udpgw /usr/bin/
 
-cat > /etc/systemd/system/badvpn.service << EOF
+cat > /etc/systemd/system/badvpn.service << 'BADEOF'
 [Unit]
 Description=BadVPN UDPGW
 [Service]
@@ -160,7 +163,7 @@ ExecStart=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7300 --max-clients 1000
 Restart=on-failure
 [Install]
 WantedBy=multi-user.target
-EOF
+BADEOF
 systemctl enable --now badvpn > /dev/null 2>&1
 
 echo -e "${YELLOW}[8/9] Instalando Xray Core...${NC}"
@@ -170,7 +173,7 @@ mkdir -p /etc/xray
 UUID=$(cat /proc/sys/kernel/random/uuid)
 echo "$UUID" > /etc/oxgi/xray_uuid
 
-cat > /etc/xray/config.json << EOF
+cat > /etc/xray/config.json << XRAYEOF
 {
   "log": {"loglevel": "warning"},
   "inbounds": [
@@ -202,7 +205,7 @@ cat > /etc/xray/config.json << EOF
   ],
   "outbounds": [{"protocol": "freedom"}]
 }
-EOF
+XRAYEOF
 systemctl enable --now xray > /dev/null 2>&1
 
 # ═══════════════════════════════════════════════════════════════
@@ -272,129 +275,188 @@ echo -e "  • Válido hasta: ${CYAN}${CERT_EXPIRY}${NC}"
 echo -e "  • Ubicación: ${GREEN}/etc/letsencrypt/live/${DOMAIN}/${NC}"
 
 # ═══════════════════════════════════════════════════════════════
-# CONFIGURAR NGINX CON CERTIFICADO SSL REAL
+# CONFIGURAR NGINX CON CERTIFICADO SSL REAL - CORREGIDO
 # ═══════════════════════════════════════════════════════════════
 
 rm -f /etc/nginx/sites-enabled/default
+rm -f /etc/nginx/sites-enabled/oxgi
+rm -f /etc/nginx/sites-available/oxgi
 
-cat > /etc/nginx/sites-available/oxgi << EOF
-# HTTP - Puerto 80 (WebSocket Non-TLS)
+# ============================================================
+# CONFIG NGINX CORREGIDA - Variables escapadas con \
+# ============================================================
+cat > /etc/nginx/sites-available/oxgi << 'NGINXEOF'
+# HTTP - Puerto 80 (Redirige a HTTPS + ACME challenge)
 server {
     listen 80;
-    server_name ${DOMAIN} _;
-    
+    listen [::]:80;
+    server_name _;
+
+    # ACME challenge para renovación automática
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        allow all;
+    }
+
     location / {
-        proxy_pass http://127.0.0.1:2090;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "Upgrade";
-        proxy_set_header Host \$host;
-        proxy_connect_timeout 86400s;
-        proxy_send_timeout 86400s;
-        proxy_read_timeout 86400s;
-        proxy_buffering off;
-    }
-    
-    location /vless {
-        proxy_pass http://127.0.0.1:10000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "Upgrade";
-        proxy_buffering off;
-    }
-    
-    location /vmess {
-        proxy_pass http://127.0.0.1:10001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "Upgrade";
-        proxy_buffering off;
-    }
-    
-    location /trojan {
-        proxy_pass http://127.0.0.1:10002;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "Upgrade";
-        proxy_buffering off;
+        return 301 https://$host$request_uri;
     }
 }
 
 # HTTPS - Puerto 443 (WebSocket TLS con SSL REAL)
 server {
     listen 443 ssl http2;
-    server_name ${DOMAIN} _;
-    
-    ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    listen [::]:443 ssl http2;
+    server_name _;
+
+    # Certificados SSL (se reemplazan con sed después)
+    ssl_certificate /etc/letsencrypt/live/DOMAIN_PLACEHOLDER/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/DOMAIN_PLACEHOLDER/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
     ssl_prefer_server_ciphers on;
-    
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    # Desactivar buffering para WebSocket
+    proxy_buffering off;
+    proxy_request_buffering off;
+
+    # ============================================================
+    # WebSocket SSH (HTTP Custom / Injector)
+    # ============================================================
     location / {
         proxy_pass http://127.0.0.1:2090;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "Upgrade";
-        proxy_set_header Host \$host;
+
+        # Headers CRÍTICOS para WebSocket - Escapados para Nginx
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Timeouts largos para conexiones persistentes
         proxy_connect_timeout 86400s;
         proxy_send_timeout 86400s;
         proxy_read_timeout 86400s;
-        proxy_buffering off;
+
+        # Desactivar caché
+        proxy_cache_bypass $http_upgrade;
     }
-    
+
+    # ============================================================
+    # VLESS WebSocket
+    # ============================================================
     location /vless {
         proxy_pass http://127.0.0.1:10000;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "Upgrade";
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
         proxy_buffering off;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
     }
-    
+
+    # ============================================================
+    # VMESS WebSocket
+    # ============================================================
     location /vmess {
         proxy_pass http://127.0.0.1:10001;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "Upgrade";
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
         proxy_buffering off;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
     }
-    
+
+    # ============================================================
+    # TROJAN WebSocket
+    # ============================================================
     location /trojan {
         proxy_pass http://127.0.0.1:10002;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "Upgrade";
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
         proxy_buffering off;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+
+    # Health check
+    location /health {
+        access_log off;
+        return 200 "OK\n";
+        add_header Content-Type text/plain;
     }
 }
-EOF
+NGINXEOF
 
-ln -sf /etc/nginx/sites-available/oxgi /etc/nginx/sites-enabled/
+# Reemplazar el placeholder del dominio con el dominio real
+sed -i "s|DOMAIN_PLACEHOLDER|${DOMAIN}|g" /etc/nginx/sites-available/oxgi
 
-# Websockify
-cat > /etc/systemd/system/websockify.service << 'EOF'
+ln -sf /etc/nginx/sites-available/oxgi /etc/nginx/sites-enabled/oxgi
+
+# ============================================================
+# WEBSOCKIFY SERVICE CORREGIDO
+# ============================================================
+cat > /etc/systemd/system/websockify.service << 'WSEOF'
 [Unit]
 Description=Websockify SSH Bridge
+After=network.target
+Wants=network.target
+
 [Service]
 Type=simple
-ExecStart=/usr/bin/websockify 2090 127.0.0.1:22
+ExecStart=/usr/bin/websockify --verbose --log-file /var/log/websockify.log 2090 127.0.0.1:22
 Restart=on-failure
+RestartSec=5
+StandardOutput=append:/var/log/websockify.log
+StandardError=append:/var/log/websockify.log
+
 [Install]
 WantedBy=multi-user.target
-EOF
+WSEOF
+
+# Crear directorio para logs
+mkdir -p /var/log
+touch /var/log/websockify.log
+
+# ============================================================
+# VERIFICAR Y REINICIAR SERVICIOS
+# ============================================================
+echo -e "${YELLOW}[*] Verificando configuración de Nginx...${NC}"
+nginx -t
+if [[ $? -ne 0 ]]; then
+    echo -e "${RED}[ERROR] Configuración de Nginx inválida${NC}"
+    exit 1
+fi
 
 systemctl daemon-reload
 systemctl enable --now websockify nginx > /dev/null 2>&1
 
+# Verificar que websockify esté escuchando
+sleep 2
+if ! ss -tlnp | grep -q ':2090'; then
+    echo -e "${YELLOW}[!] Websockify no respondió inmediatamente, reiniciando...${NC}"
+    systemctl restart websockify
+    sleep 2
+fi
+
 # Renovación automática
-echo "0 3 * * * certbot renew --quiet && systemctl reload nginx" | crontab -
+echo "0 3 * * * certbot renew --quiet --deploy-hook 'systemctl reload nginx'" | crontab -
 
 # Instalar panel
 INSTALL_DIR="/usr/local/oxgi"
 rm -rf "$INSTALL_DIR"
 git clone -b main https://github.com/gitechcode-star/oxgi-vps-script.git "$INSTALL_DIR" > /dev/null 2>&1
-chmod +x "$INSTALL_DIR"/*.sh "$INSTALL_DIR"/modules/*.sh
-ln -sf "$INSTALL_DIR"/oxgi.sh /usr/local/bin/oxgi
+chmod +x "$INSTALL_DIR"/*.sh "$INSTALL_DIR"/modules/*.sh 2>/dev/null || true
+ln -sf "$INSTALL_DIR"/oxgi.sh /usr/local/bin/oxgi 2>/dev/null || true
 
 # Auto-clean script
 cat > /etc/oxgi/auto_clean.sh << 'CLEANEOF'
@@ -427,12 +489,11 @@ echo -e "${GREEN}║        ${BOLD}OXGI VPS - INSTALACIÓN COMPLETADA${NC}${GREE
 echo -e "${GREEN}╚══════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "${CYAN}══════════════════════════════════════════════════${NC}"
-echo -e "${YELLOW}PORT:${NC}"
-echo -e "${CYAN}Port & Service${NC}"
+echo -e "${YELLOW}PORTS & SERVICES:${NC}"
 echo -e "${CYAN}=========================${NC}"
 echo -e "OpenSSH           : ${GREEN}22${NC}"
 echo -e "WebSocket TLS     : ${GREEN}443${NC}"
-echo -e "WebSocket NonTLS  : ${GREEN}80${NC}"
+echo -e "WebSocket NonTLS  : ${GREEN}80 (redirige a 443)${NC}"
 echo -e "UDP Custom        : ${GREEN}1-65535${NC}"
 echo -e "BadVPN/UDPWG      : ${GREEN}7300${NC}"
 echo -e "Dropbear SSH      : ${GREEN}109${NC}"
@@ -440,7 +501,7 @@ echo -e "gRPC              : ${GREEN}443${NC}"
 echo -e "${CYAN}=========================${NC}"
 echo ""
 echo -e "${CYAN}══════════════════════════════════════════════════${NC}"
-echo -e "${YELLOW}SETTING CLOUDFLARE${NC}"
+echo -e "${YELLOW}CLOUDFLARE SETTINGS${NC}"
 echo -e "${CYAN}══════════════════════════════════════════════════${NC}"
 echo -e "SSL/TLS              : ${GREEN}FULL${NC}"
 echo -e "SSL/TLS Recommender  : ${GREEN}ON${NC}"
@@ -452,11 +513,11 @@ echo ""
 echo -e "${CYAN}══════════════════════════════════════════════════${NC}"
 echo -e "${YELLOW}SSL CERTIFICATE (REAL - LET'S ENCRYPT)${NC}"
 echo -e "${CYAN}══════════════════════════════════════════════════${NC}"
-echo -e "Domain    : ${GREEN}${DOMAIN}${NC}"
-echo -e "Issuer    : ${GREEN}${CERT_ISSUER}${NC}"
+echo -e "Domain     : ${GREEN}${DOMAIN}${NC}"
+echo -e "Issuer     : ${GREEN}${CERT_ISSUER}${NC}"
 echo -e "Valid Until: ${GREEN}${CERT_EXPIRY}${NC}"
-echo -e "Auto-Renew: ${GREEN}Enabled (daily at 3 AM)${NC}"
-echo -e "Location  : ${GREEN}/etc/letsencrypt/live/${DOMAIN}/${NC}"
+echo -e "Auto-Renew : ${GREEN}Enabled (daily at 3 AM)${NC}"
+echo -e "Location   : ${GREEN}/etc/letsencrypt/live/${DOMAIN}/${NC}"
 echo ""
 echo -e "${CYAN}══════════════════════════════════════════════════${NC}"
 echo -e "${YELLOW}XRAY CONFIG${NC}"
@@ -467,12 +528,13 @@ echo -e "VMESS TLS : ${GREEN}vmess://${UUID}@${DOMAIN}:443?security=tls&type=ws&
 echo -e "TROJAN    : ${GREEN}trojan://${UUID}@${DOMAIN}:443?security=tls&type=ws&path=/trojan#OXGI${NC}"
 echo ""
 echo -e "${CYAN}══════════════════════════════════════════════════${NC}"
-echo -e "${YELLOW}HTTP CUSTOM / INJECTOR${NC}"
+echo -e "${YELLOW}HTTP CUSTOM / INJECTOR (WebSocket SSH)${NC}"
 echo -e "${CYAN}══════════════════════════════════════════════════${NC}"
 echo -e "Host      : ${GREEN}${DOMAIN}${NC}"
-echo -e "Port TLS  : ${GREEN}443${NC}"
-echo -e "Port HTTP : ${GREEN}80${NC}"
+echo -e "Port      : ${GREEN}443${NC}"
 echo -e "Path      : ${GREEN}/${NC}"
+echo -e "SSL/TLS   : ${GREEN}Activado${NC}"
+echo -e "SNI       : ${GREEN}${DOMAIN}${NC}"
 echo ""
 echo -e "${GREEN}══════════════════════════════════════════════════${NC}"
 echo -e "  Type ${YELLOW}oxgi${NC}${GREEN} to manage your VPS${NC}"
