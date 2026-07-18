@@ -20,7 +20,26 @@ apt update -y && apt upgrade -y
 
 echo -e "${YELLOW}[2/10] Instalando paquetes base...${NC}"
 apt install -y nginx python3 curl wget unzip jq bc openssl net-tools \
-    screen cmake g++ make cron fail2ban vnstat certbot python3-certbot-nginx git
+    screen cmake g++ make cron fail2ban vnstat certbot python3-certbot-nginx git ufw
+
+# Configurar Firewall (Incluyendo UDP Custom 1-65535)
+echo -e "${YELLOW}[2.5/10] Configurando Firewall y UDP Custom...${NC}"
+ufw --force reset > /dev/null 2>&1
+ufw default deny incoming > /dev/null 2>&1
+ufw default allow outgoing > /dev/null 2>&1
+ufw allow 22/tcp
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw allow 109/tcp
+ufw allow 143/tcp
+ufw allow 447/tcp
+ufw allow 777/tcp
+ufw allow 81/tcp
+ufw allow 7100:7300/tcp
+ufw allow 7100:7300/udp
+# REGLA CRÍTICA PARA UDP CUSTOM (Rango completo para que funcione en HTTP Custom)
+ufw allow 1:65535/udp > /dev/null 2>&1
+echo "y" | ufw enable > /dev/null 2>&1
 
 echo -e "${YELLOW}[3/10] Compilando Dropbear 2019.78...${NC}"
 cd /root
@@ -77,7 +96,7 @@ EOF
 pkill -9 stunnel4 || true; sleep 2
 systemctl enable stunnel4 && systemctl restart stunnel4
 
-echo -e "${YELLOW}[5/10] Instalando BadVPN (UDP)...${NC}"
+echo -e "${YELLOW}[5/10] Instalando BadVPN (UDPGW)...${NC}"
 mkdir -p /root/badvpn && cd /root/badvpn
 if [[ ! -f "/usr/bin/badvpn-udpgw" ]]; then
     git clone https://github.com/ambrop72/badvpn.git . > /dev/null 2>&1
@@ -529,6 +548,7 @@ echo -e "${GREEN}   INSTALACIÓN COMPLETADA${NC}"
 echo -e "${GREEN}══════════════════════════════════════════╝${NC}"
 echo -e "SSH: ${GREEN}22${NC} | WS: ${GREEN}80,443${NC} | Dropbear: ${GREEN}109,143${NC}"
 echo -e "Stunnel: ${GREEN}447,777${NC} | BadVPN: ${GREEN}7100-7300${NC}"
-echo -e "WebSocket: ${GREEN}2090${NC} | Nginx: ${GREEN}81${NC}"
+echo -e "UDP Custom: ${GREEN}1-65535${NC} | Nginx: ${GREEN}81${NC}"
+echo -e "WebSocket: ${GREEN}2090${NC}"
 echo ""
 echo -e "${YELLOW}Ejecuta:${NC} ${GREEN}oxgi${NC}"
